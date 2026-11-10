@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cliente Prisma generado (B0-6)
+/src/server/shared/db/generated/
