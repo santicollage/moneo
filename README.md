@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Moneo
 
-## Getting Started
+Gestor de finanzas para pareja (PWA). Un solo paquete Next.js con TypeScript estricto; el dinero nunca es `float` (se guarda en centavos como `bigint`).
 
-First, run the development server:
+> Estado: F4 (cimientos). Todavía no hay funcionalidad de usuario.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Requisitos
+
+- Node.js 26.x (ver `.nvmrc`; `engines` lo exige).
+- pnpm 11.28.11 (campo `packageManager`). No uses npm ni yarn: el repositorio solo tiene `pnpm-lock.yaml`.
+
+## Empezar
+
+```powershell
+pnpm install                 # instala y activa los hooks de Git (script `prepare`)
+Copy-Item .env.example .env  # y completa lo que necesites; nunca subas `.env`
+pnpm dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sin `pnpm install` no hay hooks: el commit y el push saldrían sin revisar.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Comando                 | Qué hace                                                               |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `pnpm dev`              | Servidor de desarrollo                                                 |
+| `pnpm build`            | Compilación de producción                                              |
+| `pnpm lint`             | ESLint, incluidas las reglas de arquitectura                           |
+| `pnpm typecheck`        | `tsc --noEmit`                                                         |
+| `pnpm test`             | Pruebas unitarias y de las reglas de lint (proyecto `unit`)            |
+| `pnpm test:integration` | Pruebas contra Postgres real (proyecto `integration`; vacío por ahora) |
+| `pnpm format`           | Prettier sobre todo el repositorio                                     |
 
-## Learn More
+## Estructura
 
-To learn more about Next.js, take a look at the following resources:
+| Carpeta         | Contenido                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `src/domain`    | Reglas de negocio en TypeScript puro: sin Next, React, Prisma ni Supabase                        |
+| `src/server`    | Servicios y repositorios. Reciben un `actor` explícito; Prisma solo en `shared/db` y `*.repo.ts` |
+| `src/contracts` | Esquemas Zod: el contrato de la API (tipos, validación y cliente)                                |
+| `src/app`       | Páginas y Route Handlers de `/api/v1`                                                            |
+| `tests`         | Pruebas fuera de `src` (reglas de lint, integración)                                             |
+| `scripts`       | Respaldo y restauración cifrados (`scripts/backup`)                                              |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Las reglas de dependencia las hace cumplir ESLint (`eslint.config.mjs`) y están probadas en `tests/lint`. Si una regla estorba, no la apagues: cambia la regla y su prueba juntas.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Commits
 
-## Deploy on Vercel
+Conventional Commits, validados por commitlint: `tipo(alcance opcional): asunto`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `pre-commit`: Prettier y ESLint sobre los archivos en staging.
+- `pre-push`: `pnpm typecheck` y `pnpm test`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Seguridad
+
+- Nada de secretos, claves ni datos reales en el repositorio. `.env.example` solo lleva nombres.
+- Los datos financieros se acceden solo desde código de servidor; el navegador no usa el cliente de Supabase.
