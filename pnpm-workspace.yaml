@@ -1,3 +1,14 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+# Configuración de pnpm 11 (ya no la lee desde .npmrc).
+# No es un workspace: no hay clave "packages" (D-02: un solo paquete).
+saveExact: true
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - next
+  - "@next/*"
+  - eslint-config-next
+  - react
+  - react-dom
+engineStrict: true
