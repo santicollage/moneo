@@ -8,7 +8,6 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - next
   - "@next/*"
-  - eslint-config-next
   - react
   - react-dom
 engineStrict: true
