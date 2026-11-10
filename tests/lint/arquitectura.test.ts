@@ -9,7 +9,12 @@
  * - "debe pasar":   el lint NO debe reportar ninguna regla [ARQ-xx] (otras reglas, como estilo, no cuentan).
  */
 import { ESLint } from "eslint";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// El primer lint con tipos arranca el servicio de proyecto de TypeScript: en frío tarda varios
+// segundos (5,5 s medidos en Windows). Solo este archivo necesita más margen que el valor por
+// defecto (5 s); el resto de las pruebas unitarias conserva el suyo.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 // Para las reglas ARQ-xx las rutas son simuladas (el archivo no existe), así que no hay tipos
 // que leer: se apagan solo las reglas que los necesitan. Esas reglas tienen su propio bloque
