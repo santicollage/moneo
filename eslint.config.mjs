@@ -98,8 +98,14 @@ function importes({ domain = false, nextServerOnly = false, prisma }) {
       paths.push({ name, message: MSG.domainFramework });
     }
     patterns.push(
-      { group: ["next/**", "react/**", "react-dom/**", "@supabase/**"], message: MSG.domainFramework },
-      { group: ["@/server", "@/server/**", "@/app", "@/app/**", "**/server/**", "**/app/**"], message: MSG.domainCapas },
+      {
+        group: ["next/**", "react/**", "react-dom/**", "@supabase/**"],
+        message: MSG.domainFramework,
+      },
+      {
+        group: ["@/server", "@/server/**", "@/app", "@/app/**", "**/server/**", "**/app/**"],
+        message: MSG.domainCapas,
+      },
     );
   }
 
@@ -111,7 +117,11 @@ function importes({ domain = false, nextServerOnly = false, prisma }) {
 
   if (prisma !== "libre") {
     // En el dominio, Prisma se reporta como regla del dominio (ARQ-01), no como ARQ-05.
-    const message = domain ? MSG.domainFramework : prisma === "tipos" ? MSG.prismaRepo : MSG.prismaTodo;
+    const message = domain
+      ? MSG.domainFramework
+      : prisma === "tipos"
+        ? MSG.prismaRepo
+        : MSG.prismaTodo;
     const allowTypeImports = prisma === "tipos";
     for (const name of PRISMA_PATHS) paths.push({ name, message, allowTypeImports });
     patterns.push({ group: PRISMA_PATTERNS, message, allowTypeImports });
@@ -135,7 +145,14 @@ const alcance = (files, { imp, sint }) => ({
 // Configuración
 // ---------------------------------------------------------------------------
 export default defineConfig([
-  globalIgnores([".next/**", "out/**", "build/**", "coverage/**", "next-env.d.ts", "src/server/shared/db/generated/**"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "coverage/**",
+    "next-env.d.ts",
+    "src/server/shared/db/generated/**",
+  ]),
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -13,8 +13,26 @@ describe("PositiveMoney (entrada de movimientos)", () => {
     expect(PositiveMoney.parse("999999999.99")).toBe(MAX_AMOUNT_CENTS);
   });
   it.each([
-    "0", "0.00", "1000000000", "1000000000.00", "23500.5", "23.500", "23,500", "023500",
-    "-5", "+5", " 5", "5 ", "1e3", "0x10", "", "NaN", "Infinity", "5.", ".5", "5.000",
+    "0",
+    "0.00",
+    "1000000000",
+    "1000000000.00",
+    "23500.5",
+    "23.500",
+    "23,500",
+    "023500",
+    "-5",
+    "+5",
+    " 5",
+    "5 ",
+    "1e3",
+    "0x10",
+    "",
+    "NaN",
+    "Infinity",
+    "5.",
+    ".5",
+    "5.000",
   ])("rechaza %s", (s) => expect(ok(s)).toBe(false));
   it("rechaza números JSON (nunca float)", () => {
     expect(ok(23500)).toBe(false);

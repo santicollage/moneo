@@ -41,7 +41,11 @@ export const PositiveMoney = z
   .refine((c) => c > 0n, { message: "money_not_positive" })
   .refine((c) => c <= MAX_AMOUNT_CENTS, { message: "money_too_large" })
   .transform((c) => c as Cents)
-  .meta({ type: "string", pattern: UNSIGNED.source, description: "COP, decimal string, > 0, ≤ 999999999.99" });
+  .meta({
+    type: "string",
+    pattern: UNSIGNED.source,
+    description: "COP, decimal string, > 0, ≤ 999999999.99",
+  });
 
 /** Saldo inicial, saldo objetivo y celda de asignación: con signo, |x| ≤ máximo. "-0" se rechaza. */
 export const SignedMoney = z
@@ -49,7 +53,11 @@ export const SignedMoney = z
   .regex(SIGNED, { message: "money_format" })
   .refine((s) => !/^-0(\.00)?$/.test(s), { message: "money_format" })
   .transform((s) => toCents(s) as Cents)
-  .meta({ type: "string", pattern: SIGNED.source, description: "COP, signed decimal string, |x| ≤ 999999999.99" });
+  .meta({
+    type: "string",
+    pattern: SIGNED.source,
+    description: "COP, signed decimal string, |x| ≤ 999999999.99",
+  });
 
 /** Salida: cualquier Cents (sumas incluidas, sin tope) → string canónico con 2 decimales. */
 export const MoneyOut = z
