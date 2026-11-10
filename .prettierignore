@@ -1,0 +1,9 @@
+# Generado o de terceros
+.next/
+out/
+build/
+coverage/
+node_modules/
+next-env.d.ts
+pnpm-lock.yaml
+src/server/shared/db/generated/
