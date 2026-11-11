@@ -1,6 +1,6 @@
 // ESLint 10 (config plana) con las reglas de arquitectura de Moneo.
 //
-// Por qué existe este archivo: ADR-001, ADR-013 y EN-14 (docs/15-revision-g3.md §7)
+// Por qué existe este archivo: ADR-001, ADR-013 y EN-14 (revisión de G3)
 // pasan de "lint o revisión" a SOLO LINT. Cada regla lleva un identificador [ARQ-xx]
 // en su mensaje y tiene su prueba en tests/lint/arquitectura.test.ts.
 // Si cambias una regla, cambia su prueba; si una prueba falla, la regla no protege nada.

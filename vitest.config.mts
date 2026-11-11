@@ -1,4 +1,4 @@
-// Vitest 5 con dos proyectos (ADR-008, docs/13-estrategia-de-testing.md):
+// Vitest 5 con dos proyectos (ADR-008; T-1 y T-5 de la estrategia de testing):
 //   unit        → rápidas, sin red ni base de datos. Es lo que corre `pnpm test` y el pre-push.
 //   integration → contra Postgres real (llega con F4-03/F4-05). `pnpm test:integration`.
 // Cada proyecto declara su propio include: nada se "descubre" por accidente.

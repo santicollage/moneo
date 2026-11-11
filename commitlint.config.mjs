@@ -1,4 +1,4 @@
-// Conventional Commits (docs/14-entornos-observabilidad-y-costos.md, ADR-008).
+// Conventional Commits (ADR-015 D4).
 // Tipos: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.
 export default {
   extends: ["@commitlint/config-conventional"],
