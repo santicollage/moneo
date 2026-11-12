@@ -153,9 +153,9 @@ describe("las reglas fallan cuando deben", () => {
 describe("dependabot.yml", () => {
   const texto = existsSync(DEPENDABOT) ? readFileSync(DEPENDABOT, "utf8") : "";
 
-  it("cubre npm y las acciones de GitHub (R56)", () => {
-    expect(texto).toMatch(/package-ecosystem:\s*npm/);
+  it("cubre las acciones de GitHub (R56); npm está fuera por R61 (Node 26 no soportado)", () => {
     expect(texto).toMatch(/package-ecosystem:\s*github-actions/);
+    expect(texto).not.toMatch(/^\s*-\s*package-ecosystem:\s*npm/m);
   });
 
   it("usa cooldown y ningún grupo con comodín (un grupo * anula el cooldown)", () => {

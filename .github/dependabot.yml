@@ -1,34 +1,13 @@
-# Dependabot (F4-02). Dos reglas que no son obvias:
-#  - `cooldown` (2 días) debe ser mayor que `minimumReleaseAge` de pnpm (1 día, pnpm-workspace.yaml).
-#    Si Dependabot abre un PR con una versión publicada hace menos de 24 h, `pnpm install` falla en el
-#    CI. Las actualizaciones de seguridad ignoran el cooldown.
+# Dependabot (F4-02). Reglas que no son obvias:
+#  - npm NO está activo (R61 materializado, 2026-11-12): el actualizador de Dependabot usa Node
+#    v24.22.3 y rechaza con `tool_version_not_supported` el `engines.node: 26.x` del proyecto (ADR-015).
+#    Mientras tanto: `pnpm audit` en el CI y revisión manual con `pnpm outdated`.
+#    Reabrir cuando Dependabot soporte Node 26: restaurar el bloque npm desde el historial de git
+#    y volver a exigir el ecosistema npm en tests/politicas/workflows.test.ts.
+#  - `cooldown` (2 días en npm, 3 en acciones) debe ser mayor que `minimumReleaseAge` de pnpm (1 día) cuando npm vuelva.
 #  - Sin grupos con comodín: un grupo `*` anula el cooldown.
-# Next, React, Prisma y TypeScript se revisan a mano (ADR-015): Dependabot abre el PR, no se fusiona sin leerlo.
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: America/Bogota
-    cooldown:
-      default-days: 2
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: chore
-      include: scope
-    ignore:
-      # R60 / ADR-015: TypeScript se queda en 5.9.x hasta que typescript-eslint acepte 6.1.
-      - dependency-name: typescript
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      # ADR-003 / R42: Prisma 7 hasta decidir lo contrario con un ADR (la CLI 8 no trae `migrate dev`).
-      - dependency-name: prisma
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@prisma/*"
-        update-types: ["version-update:semver-major"]
-
   - package-ecosystem: github-actions
     directory: /
     schedule:
