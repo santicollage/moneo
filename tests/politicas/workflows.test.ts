@@ -153,7 +153,7 @@ describe("las reglas fallan cuando deben", () => {
 describe("dependabot.yml", () => {
   const texto = existsSync(DEPENDABOT) ? readFileSync(DEPENDABOT, "utf8") : "";
 
-  it("cubre las acciones de GitHub (R56); npm está fuera por R61 (Node 26 no soportado)", () => {
+  it("cubre las acciones de GitHub (R56); npm está fuera por R62 (Node 26 no soportado)", () => {
     expect(texto).toMatch(/package-ecosystem:\s*github-actions/);
     expect(texto).not.toMatch(/^\s*-\s*package-ecosystem:\s*npm/m);
   });
