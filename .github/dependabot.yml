@@ -1,0 +1,43 @@
+# Dependabot (F4-02). Dos reglas que no son obvias:
+#  - `cooldown` (2 días) debe ser mayor que `minimumReleaseAge` de pnpm (1 día, pnpm-workspace.yaml).
+#    Si Dependabot abre un PR con una versión publicada hace menos de 24 h, `pnpm install` falla en el
+#    CI. Las actualizaciones de seguridad ignoran el cooldown.
+#  - Sin grupos con comodín: un grupo `*` anula el cooldown.
+# Next, React, Prisma y TypeScript se revisan a mano (ADR-015): Dependabot abre el PR, no se fusiona sin leerlo.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Bogota
+    cooldown:
+      default-days: 2
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      # R60 / ADR-015: TypeScript se queda en 5.9.x hasta que typescript-eslint acepte 6.1.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # ADR-003 / R42: Prisma 7 hasta decidir lo contrario con un ADR (la CLI 8 no trae `migrate dev`).
+      - dependency-name: prisma
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Bogota
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: chore
+      include: scope

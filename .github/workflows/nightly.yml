@@ -1,0 +1,44 @@
+# Corrida nocturna (F4-02, T-1): propiedades con 10 veces más corridas y semilla aleatoria.
+# 07:43 UTC = 02:43 en Bogotá (minuto distinto de :00 a propósito; las horas en punto se retrasan).
+# Mismas reglas WF-01 a WF-04 que ci.yml (tests/politicas/workflows.test.ts).
+#
+# Hoy no hay pruebas de propiedades: hasta F5-02 esto corre la misma suite unitaria. PROP_NUM_RUNS
+# todavía no lo lee nadie; el archivo de preparación de Vitest que lo usa llega con la primera
+# propiedad. Un fallo imprime su semilla y esa semilla pasa a ser un ejemplo fijo (T-11).
+name: Nocturna
+
+on:
+  schedule:
+    - cron: "43 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  HUSKY: "0"
+  CI: "true"
+  PROP_NUM_RUNS: "2000"
+
+jobs:
+  propiedades:
+    name: Propiedades x10
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Instalar pnpm (la versión de packageManager)
+        run: |
+          PNPM_VERSION="$(node -p "require('./package.json').packageManager.split('@')[1]")"
+          npm install --global "pnpm@${PNPM_VERSION}"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

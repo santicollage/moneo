@@ -51,6 +51,12 @@ Conventional Commits, validados por commitlint: `tipo(alcance opcional): asunto`
 - `pre-commit`: Prettier y ESLint sobre los archivos en staging.
 - `pre-push`: `pnpm typecheck` y `pnpm test`.
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) corre en Linux lo mismo que los ganchos (formato, lint, tipos, pruebas y build), más gitleaks, `pnpm audit` y un Postgres 17. `main` solo recibe cambios por pull request con el check `ci-ok` en verde. Los ganchos locales se pueden saltar con `--no-verify`; el CI no.
+
+Las reglas de los workflows (acciones fijadas por SHA, permisos mínimos) y la de no usar variables públicas de Supabase las hacen cumplir las pruebas de `tests/politicas`.
+
 ## Seguridad
 
 - Nada de secretos, claves ni datos reales en el repositorio. `.env.example` solo lleva nombres.
