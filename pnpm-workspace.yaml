@@ -1,6 +1,8 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  "@prisma/engines": true
+  prisma: false
 # Configuración de pnpm 11 (ya no la lee desde .npmrc).
 # No es un workspace: no hay clave "packages" (D-02: un solo paquete).
 saveExact: true
