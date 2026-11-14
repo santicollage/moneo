@@ -1,0 +1,415 @@
+// Moneo · schema F3-02 (2026-11-05; revisión crítica aplicada el 2026-11-06)
+// Fuente de verdad del schema: Prisma Migrate (D-05). Lo que Prisma no expresa
+// (CHECK y RLS) vive al final de la migración inicial, en SQL escrito a mano:
+// ver prisma/migrations/20261105000000_init/migration.sql (parte B) y docs/11-modelo-de-datos.md §5.
+// Convenciones: modelos en PascalCase y tablas en snake_case (@@map); dinero en
+// centavos BIGINT con sufijo _cents (ADR-004); UUID v4 generado por Postgres
+// (ADR-005); space_id en toda tabla financiera + FK compuestas (ADR-013).
+// Toda relación lleva onDelete: Restrict y onUpdate: Restrict (M-13, M-17): el valor por
+// defecto de Prisma es onUpdate: Cascade, que movería filas hijas a otro espacio en silencio.
+
+generator client {
+  provider        = "prisma-client"
+  // F4-03a: ruta real del cliente (ARQ-05 y .gitignore). El borrador de F3-02 decía ../src/generated/prisma.
+  output          = "../src/server/shared/db/generated"
+  // Índices parciales en el schema (Prisma ≥ 7.4, preview) para que Migrate no los
+  // detecte como deriva (prisma/prisma#14651). Verificar en F4-01 si sigue en preview.
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enumeraciones ─────────────────────────
+
+enum SpaceKind {
+  personal // existe en el modelo; en v1 no se crea (C3, D-18)
+  shared
+
+  @@map("space_kind")
+}
+
+enum MembershipRole {
+  owner
+  collaborator
+
+  @@map("membership_role")
+}
+
+/// Informativo: ningún cálculo depende del tipo (ADR-012).
+enum AccountType {
+  savings
+  checking
+  wallet // Nequi, Daviplata, Nu (cuenta)
+  cash
+  credit_card // único pasivo de v1
+
+  @@map("account_type")
+}
+
+enum HolderKind {
+  member
+  shared // "compartida": cuenta conjunta real
+
+  @@map("holder_kind")
+}
+
+/// Los 4 grupos fijos (D-15). Sin tabla: no existe CRUD de grupos por construcción.
+enum CategoryGroup {
+  needs
+  wants
+  savings
+  investment
+
+  @@map("category_group")
+}
+
+enum MovementKind {
+  income
+  expense
+  refund
+  transfer
+  balance_adjustment
+  closing_adjustment // solo al terminar una membresía (v1.1, UC-07)
+
+  @@map("movement_kind")
+}
+
+/// Sentido sobre `account_id`. NULL solo en transferencias (el sentido lo dan las dos columnas).
+enum Direction {
+  inflow
+  outflow
+
+  @@map("direction")
+}
+
+enum AuditEntity {
+  space
+  membership
+  invitation
+  account
+  category
+  subcategory
+  allocation
+  movement
+
+  @@map("audit_entity")
+}
+
+enum AuditAction {
+  create
+  update
+  void
+  archive
+  unarchive
+  delete
+
+  @@map("audit_action")
+}
+
+// ───────────────────────── Personas y espacios ─────────────────────────
+
+/// Mismo UUID que auth.users (Supabase). Sin FK declarada a auth.users (decisión M-2).
+/// El correo vive solo en auth.users (minimización, RNF-PRI-03).
+model Profile {
+  id          String   @id @db.Uuid
+  displayName String   @map("display_name") @db.VarChar(60)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  memberships          Membership[]
+  spacesCreated        Space[]        @relation("SpaceCreatedBy")
+  invitationsCreated   Invitation[]   @relation("InvitationCreatedBy")
+  invitationsAccepted  Invitation[]   @relation("InvitationAcceptedBy")
+  accountsCreated      Account[]      @relation("AccountCreatedBy")
+  accountsUpdated      Account[]      @relation("AccountUpdatedBy")
+  categoriesCreated    Category[]     @relation("CategoryCreatedBy")
+  categoriesUpdated    Category[]     @relation("CategoryUpdatedBy")
+  subcategoriesCreated Subcategory[]  @relation("SubcategoryCreatedBy")
+  subcategoriesUpdated Subcategory[]  @relation("SubcategoryUpdatedBy")
+  allocationsCreated   Allocation[]   @relation("AllocationCreatedBy")
+  allocationsUpdated   Allocation[]   @relation("AllocationUpdatedBy")
+  movementsCreated     Movement[]     @relation("MovementCreatedBy")
+  movementsUpdated     Movement[]     @relation("MovementUpdatedBy")
+  movementsVoided      Movement[]     @relation("MovementVoidedBy")
+  auditEvents          AuditEvent[]
+
+  @@map("profile")
+}
+
+/// Unidad de autorización y de serialización (ADR-013, M-4).
+/// La clase no cambia nunca (UC-03).
+model Space {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind        SpaceKind
+  name        String    @db.VarChar(60)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String    @map("created_by_id") @db.Uuid
+  /// Borrado lógico (UC-08, v1.1). Purga física a los 30 días (M-12).
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  createdBy     Profile       @relation("SpaceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  memberships   Membership[]
+  invitations   Invitation[]
+  accounts      Account[]
+  categories    Category[]
+  subcategories Subcategory[]
+  allocations   Allocation[]
+  movements     Movement[]
+  auditEvents   AuditEvent[]
+
+  @@map("space")
+}
+
+/// Una fila por (espacio, persona), para siempre: volver a entrar reactiva la fila (v1.1).
+/// "Una membresía activa por persona" (S6) es un índice parcial (M-18); el tope de 2 miembros
+/// sigue como regla de servicio bajo el bloqueo del espacio (ADR-013).
+model Membership {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId   String         @map("space_id") @db.Uuid
+  profileId String         @map("profile_id") @db.Uuid
+  role      MembershipRole
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Salir o revocar (UC-07, v1.1). NULL = activa.
+  endedAt   DateTime?      @map("ended_at") @db.Timestamptz(3)
+
+  space        Space     @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  heldAccounts Account[] @relation("AccountHolder")
+
+  @@unique([spaceId, profileId])
+  /// Un solo propietario activo por espacio (RN-26).
+  @@unique([spaceId], map: "membership_one_owner_per_space", where: raw("role = 'owner' AND ended_at IS NULL"))
+  /// S6: como máximo una membresía activa por persona en v1 (M-18). v1.1 lo cambia con el espacio personal.
+  @@unique([profileId], map: "membership_one_active_per_profile", where: raw("ended_at IS NULL"))
+  @@index([profileId])
+  @@map("membership")
+}
+
+/// Token de un solo uso; en la base solo su hash SHA-256 (RNF-SEG-05, DN-3).
+model Invitation {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId      String    @map("space_id") @db.Uuid
+  tokenHash    Bytes     @unique @map("token_hash") @db.ByteA
+  createdById  String    @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  acceptedAt   DateTime? @map("accepted_at") @db.Timestamptz(3)
+  acceptedById String?   @map("accepted_by_id") @db.Uuid
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  space      Space    @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy  Profile  @relation("InvitationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  acceptedBy Profile? @relation("InvitationAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Como máximo una invitación sin usar ni revocar por espacio (UC-04 A2).
+  @@unique([spaceId], map: "invitation_one_open_per_space", where: raw("accepted_at IS NULL AND revoked_at IS NULL"))
+  @@index([spaceId])
+  @@map("invitation")
+}
+
+// ───────────────────────── Cuentas ─────────────────────────
+
+/// Saldo = opening_balance_cents + Σ movimientos que cuentan (derivado, M-5).
+/// Inmutables tras crear: space_id, holder_*, opened_on, opening_balance_cents (M-6);
+/// la base lo impone con GRANT UPDATE por columnas (F3-03, M-17).
+model Account {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId             String      @map("space_id") @db.Uuid
+  name                String      @db.VarChar(60)
+  type                AccountType
+  holderKind          HolderKind  @map("holder_kind")
+  /// NULL si holder_kind = shared (CHECK). Con holder_kind = member, FK compuesta a la membresía.
+  holderProfileId     String?     @map("holder_profile_id") @db.Uuid
+  openedOn            DateTime    @map("opened_on") @db.Date
+  /// Puede ser 0 o negativo (tarjeta). Entra a E, no a Estadísticas (RN-06).
+  openingBalanceCents BigInt      @map("opening_balance_cents")
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById         String      @map("created_by_id") @db.Uuid
+  updatedAt           DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById         String      @map("updated_by_id") @db.Uuid
+  /// Solo con saldo 0 (RN-13): regla de servicio bajo el bloqueo del espacio.
+  archivedAt          DateTime?   @map("archived_at") @db.Timestamptz(3)
+  /// Solo sin ningún movimiento que la toque, ni anulado, por account_id NI por
+  /// counter_account_id (RN-23, M-7, M-20). Sale de todo, también de E.
+  deletedAt           DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  version             Int         @default(1)
+
+  space     Space       @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  holder    Membership? @relation("AccountHolder", fields: [spaceId, holderProfileId], references: [spaceId, profileId], onDelete: Restrict, onUpdate: Restrict, map: "account_holder_membership_fkey")
+  createdBy Profile     @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy Profile     @relation("AccountUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  movementsAsAccount        Movement[] @relation("MovementAccount")
+  movementsAsCounterAccount Movement[] @relation("MovementCounterAccount")
+
+  @@unique([id, spaceId]) // destino de las FK compuestas (ADR-013)
+  @@index([spaceId])
+  @@map("account")
+}
+
+// ───────────────────────── Plan ─────────────────────────
+
+/// Unidad de presupuesto. Nombre único por espacio sin distinguir mayúsculas,
+/// incluidas las archivadas (RN-22), vía name_key.
+model Category {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId     String        @map("space_id") @db.Uuid
+  group       CategoryGroup
+  name        String        @db.VarChar(40)
+  /// lower(btrim(name)) calculado en el dominio; CHECK en SQL. Unicidad sin índice por expresión (M-9).
+  nameKey     String        @map("name_key") @db.VarChar(40)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String        @map("created_by_id") @db.Uuid
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String        @map("updated_by_id") @db.Uuid
+  archivedAt  DateTime?     @map("archived_at") @db.Timestamptz(3)
+  version     Int           @default(1)
+
+  space         Space         @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy     Profile       @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy     Profile       @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  subcategories Subcategory[]
+  allocations   Allocation[]
+  movements     Movement[]
+
+  @@unique([id, spaceId])
+  @@unique([spaceId, nameKey]) // RN-22: incluye archivadas
+  @@index([spaceId])
+  @@map("category")
+}
+
+/// Etiqueta opcional sin asignación ni disponible propios (D-15).
+model Subcategory {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId     String    @map("space_id") @db.Uuid
+  categoryId  String    @map("category_id") @db.Uuid
+  name        String    @db.VarChar(40)
+  nameKey     String    @map("name_key") @db.VarChar(40)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String    @map("created_by_id") @db.Uuid
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String    @map("updated_by_id") @db.Uuid
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  version     Int       @default(1)
+
+  space     Space      @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  category  Category   @relation(fields: [categoryId, spaceId], references: [id, spaceId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy Profile    @relation("SubcategoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy Profile    @relation("SubcategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  movements Movement[]
+
+  @@unique([id, categoryId]) // la subcategoría de un movimiento debe ser de SU categoría
+  @@unique([categoryId, nameKey])
+  @@map("subcategory")
+}
+
+/// Una celda por (categoría, periodo): A(c,p). Con signo, sin CHECK de signo (RN-04, ADR-004).
+/// Mover entre categorías = actualizar dos celdas en una transacción (RN-16).
+/// La historia de cada celda está en audit_event (ADR-006).
+model Allocation {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId     String   @map("space_id") @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  /// Primer día del mes en America/Bogota y nunca futuro (CHECK en SQL, M-19).
+  period      DateTime @db.Date
+  amountCents BigInt   @map("amount_cents")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String   @map("created_by_id") @db.Uuid
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String   @map("updated_by_id") @db.Uuid
+  version     Int      @default(1)
+
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  category  Category @relation(fields: [categoryId, spaceId], references: [id, spaceId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy Profile  @relation("AllocationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy Profile  @relation("AllocationUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([categoryId, period])
+  @@index([spaceId, period])
+  @@map("allocation")
+}
+
+// ───────────────────────── Movimientos ─────────────────────────
+
+/// Toda la plata real. Una transferencia es UNA fila (account_id = origen,
+/// counter_account_id = destino): no puede existir una pata sin la otra (RN-10, M-8).
+/// Toda regla sobre "los movimientos de una cuenta" mira las DOS columnas (M-20).
+/// Monto siempre > 0; el sentido lo dan kind + direction (CT-06, CHECK en SQL).
+model Movement {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId          String       @map("space_id") @db.Uuid
+  kind             MovementKind
+  direction        Direction?
+  amountCents      BigInt       @map("amount_cents")
+  accountId        String       @map("account_id") @db.Uuid
+  counterAccountId String?      @map("counter_account_id") @db.Uuid
+  categoryId       String?      @map("category_id") @db.Uuid
+  subcategoryId    String?      @map("subcategory_id") @db.Uuid
+  /// Fecha sin hora; el periodo sale de aquí (RN-15). Nunca futura en Bogotá (CHECK, M-19);
+  /// ≥ opened_on de la cuenta, y de la cuenta destino en transferencias (servicio, M-20).
+  occurredOn       DateTime     @map("occurred_on") @db.Date
+  note             String?      @db.VarChar(140)
+  /// Idempotency-Key de la creación (CT-04). Única por (espacio, quien registra).
+  clientRequestId  String?      @map("client_request_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById      String       @map("created_by_id") @db.Uuid // "registrado por" (D-19)
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById      String       @map("updated_by_id") @db.Uuid
+  voidedAt         DateTime?    @map("voided_at") @db.Timestamptz(3)
+  voidedById       String?      @map("voided_by_id") @db.Uuid
+  version          Int          @default(1)
+
+  space          Space        @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  account        Account      @relation("MovementAccount", fields: [accountId, spaceId], references: [id, spaceId], onDelete: Restrict, onUpdate: Restrict, map: "movement_account_fkey")
+  counterAccount Account?     @relation("MovementCounterAccount", fields: [counterAccountId, spaceId], references: [id, spaceId], onDelete: Restrict, onUpdate: Restrict, map: "movement_counter_account_fkey")
+  category       Category?    @relation(fields: [categoryId, spaceId], references: [id, spaceId], onDelete: Restrict, onUpdate: Restrict, map: "movement_category_fkey")
+  subcategory    Subcategory? @relation(fields: [subcategoryId, categoryId], references: [id, categoryId], onDelete: Restrict, onUpdate: Restrict, map: "movement_subcategory_fkey")
+  createdBy      Profile      @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy      Profile      @relation("MovementUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  voidedBy       Profile?     @relation("MovementVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([spaceId, createdById, clientRequestId])
+  @@index([spaceId, occurredOn(sort: Desc), createdAt(sort: Desc), id(sort: Desc)], map: "movement_list_cursor_idx")
+  @@index([accountId])
+  @@index([counterAccountId])
+  @@index([spaceId, categoryId, occurredOn])
+  @@map("movement")
+}
+
+// ───────────────────────── Auditoría ─────────────────────────
+
+/// Solo inserción (ADR-006). El rol de la app no tiene UPDATE/DELETE aquí (F3-03).
+/// Contiene montos: nunca sale a logs ni a terceros (RNF-PRI-01).
+model AuditEvent {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  spaceId    String      @map("space_id") @db.Uuid
+  actorId    String      @map("actor_id") @db.Uuid
+  entity     AuditEntity
+  entityId   String      @map("entity_id") @db.Uuid
+  action     AuditAction
+  /// { campo: [antes, después] } solo de los campos cambiados; montos como string de centavos.
+  changes    Json        @db.JsonB
+  occurredAt DateTime    @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  space Space   @relation(fields: [spaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor Profile @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([spaceId, entity, entityId, occurredAt])
+  @@map("audit_event")
+}
+
+// ───────────────────────── Límites de intentos ─────────────────────────
+
+/// Contador por ventana para DN-2 (login) y RNF-SEG-05 (aceptar invitación).
+/// key_hash = SHA-256 del correo normalizado o de la IP: nunca el dato en claro (RNF-PRI-01).
+/// Borrador para F4-04/F4-05; no es dato financiero ni lleva space_id.
+model RateLimitCounter {
+  scope       String   @db.VarChar(32) // "login:account", "login:ip", "invite:accept"
+  keyHash     Bytes    @map("key_hash") @db.ByteA
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int      @default(0)
+
+  @@id([scope, keyHash, windowStart])
+  @@map("rate_limit_counter")
+}
