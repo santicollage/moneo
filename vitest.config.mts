@@ -1,6 +1,6 @@
 // Vitest 5 con dos proyectos (ADR-008; T-1 y T-5 de la estrategia de testing):
 //   unit        → rápidas, sin red ni base de datos. Es lo que corre `pnpm test` y el pre-push.
-//   integration → contra Postgres real (llega con F4-03/F4-05). `pnpm test:integration`.
+//   integration → contra Postgres real como `moneo_app` (F4-03b: tests/integration/db). `pnpm test:integration`.
 // Cada proyecto declara su propio include: nada se "descubre" por accidente.
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";

@@ -37,6 +37,8 @@ const MSG = {
   rawSeguro:
     "[ARQ-08] $queryRaw y $executeRaw solo se usan en src/server/shared/db y en archivos *.repo.ts.",
   only: "[ARQ-09] Prohibido .only: dejaría el resto de las pruebas sin correr sin que nadie lo note.",
+  sqlDirecto:
+    "[ARQ-10] El driver de Postgres (`pg`) solo se usa en src/server/shared/db y en tests/: fuera de ahí es SQL sin repositorio ni withPolicy (EN-14, S-1, F4-03b).",
 };
 
 // ---------------------------------------------------------------------------
@@ -77,6 +79,8 @@ function sintaxis({ transaction = false, rawSeguro = false } = {}) {
 }
 
 const PRISMA_PATHS = ["@prisma/client", "@prisma/adapter-pg"];
+// Drivers de Postgres sin Prisma. `pg` es dependencia directa desde F4-03b (pruebas de la base).
+const SQL_DIRECTO = ["pg", "pg-pool", "pg-native", "postgres"];
 const PRISMA_PATTERNS = [
   "@prisma/**",
   "**/shared/db/generated",
@@ -125,6 +129,9 @@ function importes({ domain = false, nextServerOnly = false, prisma }) {
     const allowTypeImports = prisma === "tipos";
     for (const name of PRISMA_PATHS) paths.push({ name, message, allowTypeImports });
     patterns.push({ group: PRISMA_PATTERNS, message, allowTypeImports });
+    // Donde Prisma está restringido, el driver crudo también (ni siquiera sus tipos).
+    for (const name of SQL_DIRECTO) paths.push({ name, message: MSG.sqlDirecto });
+    patterns.push({ group: SQL_DIRECTO.map((n) => `${n}/**`), message: MSG.sqlDirecto });
   }
 
   return ["error", { paths, patterns }];

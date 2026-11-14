@@ -21,15 +21,15 @@ Sin `pnpm install` no hay hooks: el commit y el push saldrían sin revisar.
 
 ## Scripts
 
-| Comando                 | Qué hace                                                               |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `pnpm dev`              | Servidor de desarrollo                                                 |
-| `pnpm build`            | Compilación de producción                                              |
-| `pnpm lint`             | ESLint, incluidas las reglas de arquitectura                           |
-| `pnpm typecheck`        | `tsc --noEmit`                                                         |
-| `pnpm test`             | Pruebas unitarias y de las reglas de lint (proyecto `unit`)            |
-| `pnpm test:integration` | Pruebas contra Postgres real (proyecto `integration`; vacío por ahora) |
-| `pnpm format`           | Prettier sobre todo el repositorio                                     |
+| Comando                 | Qué hace                                                                 |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `pnpm dev`              | Servidor de desarrollo                                                   |
+| `pnpm build`            | Compilación de producción                                                |
+| `pnpm lint`             | ESLint, incluidas las reglas de arquitectura                             |
+| `pnpm typecheck`        | `tsc --noEmit`                                                           |
+| `pnpm test`             | Pruebas unitarias y de las reglas de lint (proyecto `unit`)              |
+| `pnpm test:integration` | Pruebas de la base como `moneo_app` contra un Postgres local (ver abajo) |
+| `pnpm format`           | Prettier sobre todo el repositorio                                       |
 
 ## Estructura
 
@@ -43,6 +43,25 @@ Sin `pnpm install` no hay hooks: el commit y el push saldrían sin revisar.
 | `scripts`       | Respaldo y restauración cifrados (`scripts/backup`)                                              |
 
 Las reglas de dependencia las hace cumplir ESLint (`eslint.config.mjs`) y están probadas en `tests/lint`. Si una regla estorba, no la apagues: cambia la regla y su prueba juntas.
+
+## Pruebas de la base
+
+`tests/integration/db` prueba lo que `prisma migrate diff` no ve: permisos de `moneo_app` (S-1), el manifiesto `prisma/permisos-moneo_app.json` (S-3), RLS y políticas (S-2), los CHECK de la migración (incluidos A-1 y M-19), las FK compuestas y los índices parciales. Cada prueba corre en una transacción que se deshace; el arnés solo acepta hosts locales.
+
+**Una migración que cambie permisos cambia el manifiesto en el mismo PR.** Un CHECK nuevo necesita su caso en `restricciones.test.ts` (la prueba de cobertura falla si no lo tiene).
+
+Con Supabase local (una vez por máquina, después de `pnpm exec supabase start` y `pnpm exec prisma migrate deploy`):
+
+```powershell
+# moneo_app se crea sin LOGIN en la migración; la contraseña local es tuya y no va al repositorio.
+docker exec -i supabase_db_moneo psql -U postgres -c "ALTER ROLE moneo_app LOGIN PASSWORD '<elige una>'"
+$env:TEST_APP_DATABASE_URL   = "postgresql://moneo_app:<la misma>@127.0.0.1:54322/postgres"
+$env:TEST_OWNER_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+$env:EXPECT_SUPABASE_ROLES   = "1"
+pnpm test:integration
+```
+
+En el CI corren en el job «Postgres 17», sin los roles de Supabase (la prueba de `anon`/`authenticated`/`service_role` se omite ahí y se repite contra staging en F5-07).
 
 ## Commits
 

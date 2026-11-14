@@ -64,12 +64,13 @@ jobs:
           echo "Duración de este job: $((S / 60)) min $((S % 60)) s (límite del pipeline: 10 min, RNF-MAN-02)" >> "$GITHUB_STEP_SUMMARY"
 
   postgres17:
-    name: Postgres 17 (migraciones)
+    name: Postgres 17 (migraciones e integración)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # F4-03a: el servicio es la versión mayor de Supabase (O-2); aquí se aplican las migraciones
-    # desde cero y se comprueba que el schema y las migraciones no derivan (R43). Sin secretos:
-    # la contraseña es desechable. Las pruebas de integración como `moneo_app` llegan en F4-03b.
+    # desde cero y se comprueba que el schema y las migraciones no derivan (R43).
+    # F4-03b: las pruebas de la base corren como `moneo_app` (S-1, S-3, CHECK de la parte B y A-1).
+    # Sin secretos: las dos contraseñas son desechables y solo existen en este Postgres de usar y tirar.
     services:
       postgres:
         image: postgres:17
@@ -120,6 +121,17 @@ jobs:
 
       - name: Las migraciones y el schema no derivan (R43)
         run: pnpm exec prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+
+      # La migración crea moneo_app NOLOGIN; LOGIN y contraseña se fijan fuera de ella, por entorno
+      # (seguridad.md §6, runbook). Aquí la contraseña es de relleno, como la de postgres.
+      - name: Habilitar el login de moneo_app (contraseña desechable)
+        run: psql -h localhost -U postgres -d moneo_ci -c "ALTER ROLE moneo_app LOGIN PASSWORD 'ci-desechable-app'"
+
+      - name: Pruebas de la base como moneo_app (F4-03b)
+        env:
+          TEST_APP_DATABASE_URL: postgresql://moneo_app:ci-desechable-app@localhost:5432/moneo_ci
+          TEST_OWNER_DATABASE_URL: postgresql://postgres:ci-desechable@localhost:5432/moneo_ci
+        run: pnpm test:integration
 
   secretos:
     name: gitleaks
