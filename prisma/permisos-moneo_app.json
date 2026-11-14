@@ -1,0 +1,93 @@
+{
+  "$comentario": "Manifiesto de permisos de moneo_app (S-3, seguridad.md §6.3). La prueba tests/integration/db/manifiesto.test.ts compara este archivo con los catálogos de Postgres: un permiso de más o de menos, o una tabla de public sin entrada, hace fallar el CI. Una migración que cambie permisos cambia este archivo en el mismo PR.",
+  "rol": "moneo_app",
+  "esquema": "public",
+  "tablas": {
+    "profile": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": { "UPDATE": ["display_name"] }
+    },
+    "space": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": { "UPDATE": ["name"] }
+    },
+    "membership": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": {}
+    },
+    "invitation": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": { "UPDATE": ["accepted_at", "accepted_by_id", "revoked_at"] }
+    },
+    "account": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": {
+        "UPDATE": [
+          "archived_at",
+          "deleted_at",
+          "name",
+          "type",
+          "updated_at",
+          "updated_by_id",
+          "version"
+        ]
+      }
+    },
+    "category": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": {
+        "UPDATE": [
+          "archived_at",
+          "group",
+          "name",
+          "name_key",
+          "updated_at",
+          "updated_by_id",
+          "version"
+        ]
+      }
+    },
+    "subcategory": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": {
+        "UPDATE": ["archived_at", "name", "name_key", "updated_at", "updated_by_id", "version"]
+      }
+    },
+    "allocation": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": { "UPDATE": ["amount_cents", "updated_at", "updated_by_id", "version"] }
+    },
+    "movement": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": {
+        "UPDATE": [
+          "account_id",
+          "amount_cents",
+          "category_id",
+          "counter_account_id",
+          "direction",
+          "note",
+          "occurred_on",
+          "subcategory_id",
+          "updated_at",
+          "updated_by_id",
+          "version",
+          "voided_at",
+          "voided_by_id"
+        ]
+      }
+    },
+    "audit_event": {
+      "tabla": ["INSERT", "SELECT"],
+      "columnas": {}
+    },
+    "rate_limit_counter": {
+      "tabla": ["DELETE", "INSERT", "SELECT"],
+      "columnas": { "UPDATE": ["count"] }
+    },
+    "_prisma_migrations": {
+      "tabla": [],
+      "columnas": {}
+    }
+  }
+}

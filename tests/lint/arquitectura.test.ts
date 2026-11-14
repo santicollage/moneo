@@ -510,6 +510,50 @@ pruebaDe(
   ],
 );
 
+pruebaDe(
+  "ARQ-10",
+  "el driver pg solo en src/server/shared/db y tests/",
+  [
+    {
+      nombre: "servicio importa pg",
+      ruta: "src/server/spaces/space.service.ts",
+      codigo: 'import { Pool } from "pg";\nexport const x = Pool;',
+    },
+    {
+      nombre: "Route Handler importa pg",
+      ruta: "src/app/api/v1/spaces/route.ts",
+      codigo: 'import pg from "pg";\nexport const x = pg;',
+    },
+    {
+      nombre: "repositorio importa un tipo de pg (tampoco: recibe tx)",
+      ruta: "src/server/spaces/space.repo.ts",
+      codigo: 'import type { PoolClient } from "pg";\nexport type X = PoolClient;',
+    },
+    {
+      nombre: "dominio importa pg",
+      ruta: "src/domain/a.ts",
+      codigo: 'import { Client } from "pg";\nexport const x = Client;',
+    },
+    {
+      nombre: "servicio importa el driver postgres",
+      ruta: "src/server/spaces/space.service.ts",
+      codigo: 'import postgres from "postgres";\nexport const x = postgres;',
+    },
+  ],
+  [
+    {
+      nombre: "la capa de base de datos importa pg",
+      ruta: "src/server/shared/db/pool.ts",
+      codigo: 'import { Pool } from "pg";\nexport const x = Pool;',
+    },
+    {
+      nombre: "prueba de integración importa pg",
+      ruta: "tests/integration/db/a.test.ts",
+      codigo: 'import { Pool } from "pg";\nexport const x = Pool;',
+    },
+  ],
+);
+
 describe("regla de sintaxis: ninguna regla se pisa con otra", () => {
   it("un mismo archivo recibe a la vez ARQ-03, ARQ-05 y ARQ-06 (los bloques no se reemplazan entre sí)", async () => {
     const ids = await reglasDeArquitectura(
