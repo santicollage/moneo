@@ -13,3 +13,10 @@ minimumReleaseAgeExclude:
   - react
   - react-dom
 engineStrict: true
+auditConfig:
+  ignoreGhsas:
+    # GHSA-fc5q-39xc-vjpf (picomatch <= 4.0.7, ReDoS por extglobs repetidos, sin versión parchada).
+    # Tolerado el 2026-11-17: solo llega por herramientas de desarrollo (ESLint, lint-staged,
+    # Vite/Vitest), que leen patrones del propio repo, nunca del usuario; `pnpm audit --prod` limpio.
+    # Quitar cuando salga picomatch > 4.0.7, o si `pnpm audit --prod` lo vuelve a mostrar (R62).
+    - GHSA-fc5q-39xc-vjpf
