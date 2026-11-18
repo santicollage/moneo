@@ -53,6 +53,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
+
+      # R65: el cliente de Prisma está en .gitignore y typecheck/build lo necesitan (los tests de
+      # tests/pooler-real lo importan). generate no se conecta; la URL es solo de relleno, sin secretos.
+      - name: Generar el cliente de Prisma
+        run: pnpm exec prisma generate
+        env:
+          DB_OWNER_URL: postgresql://x:x@localhost:5432/x
+
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
