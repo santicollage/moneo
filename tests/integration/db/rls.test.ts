@@ -152,4 +152,25 @@ describe("S-2 roles de la Data API sin ningún permiso (solo donde existen)", ()
       expect(r.rows).toEqual([]);
     },
   );
+
+  // Hallazgo de F4-03c en staging: Supabase deja privilegios por defecto que conceden todo a estos roles
+  // sobre lo que `postgres` cree en public. La migración 20261117000000_default_privileges los quita;
+  // sin esta prueba, una tabla de una migración futura nacería abierta a la Data API sin que nada falle.
+  it.skipIf(!hayRolesDeSupabase)(
+    "postgres no concede nada por defecto a anon, authenticated ni service_role (en public ni global)",
+    async () => {
+      const r = await dueno.query(
+        `SELECT coalesce(n.nspname, '*') AS esquema, da.defaclobjtype AS tipo,
+                pg_get_userbyid(a.grantee) AS rol, a.privilege_type AS priv
+           FROM pg_default_acl da
+           LEFT JOIN pg_namespace n ON n.oid = da.defaclnamespace
+           CROSS JOIN LATERAL aclexplode(da.defaclacl) a
+          WHERE da.defaclrole = 'postgres'::regrole
+            AND (n.nspname = 'public' OR da.defaclnamespace = 0)
+            AND pg_get_userbyid(a.grantee) = ANY($1)`,
+        [ROLES_SUPABASE],
+      );
+      expect(r.rows).toEqual([]);
+    },
+  );
 });
