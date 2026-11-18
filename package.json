@@ -13,6 +13,7 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:integration": "vitest run --project integration",
+    "test:pooler-real": "vitest run --project pooler-real",
     "prepare": "husky"
   },
   "dependencies": {
