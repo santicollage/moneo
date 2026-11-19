@@ -512,7 +512,7 @@ pruebaDe(
 
 pruebaDe(
   "ARQ-10",
-  "el driver pg solo en src/server/shared/db y tests/",
+  "el driver pg solo en tests/ (en src/server/shared/db, solo sus tipos)",
   [
     {
       nombre: "servicio importa pg",
@@ -539,12 +539,23 @@ pruebaDe(
       ruta: "src/server/spaces/space.service.ts",
       codigo: 'import postgres from "postgres";\nexport const x = postgres;',
     },
+    {
+      nombre:
+        "la capa de base de datos importa el VALOR de pg (F4-04a: el pool lo crea el adaptador)",
+      ruta: "src/server/shared/db/pool.ts",
+      codigo: 'import { Pool } from "pg";\nexport const x = Pool;',
+    },
+    {
+      nombre: "locks.ts importa pg",
+      ruta: "src/server/shared/db/locks.ts",
+      codigo: 'import pg from "pg";\nexport const x = pg;',
+    },
   ],
   [
     {
-      nombre: "la capa de base de datos importa pg",
-      ruta: "src/server/shared/db/pool.ts",
-      codigo: 'import { Pool } from "pg";\nexport const x = Pool;',
+      nombre: "la capa de base de datos importa solo el TIPO de pg",
+      ruta: "src/server/shared/db/client.ts",
+      codigo: 'import type { PoolConfig } from "pg";\nexport type X = PoolConfig;',
     },
     {
       nombre: "prueba de integración importa pg",

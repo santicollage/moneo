@@ -38,7 +38,7 @@ const MSG = {
     "[ARQ-08] $queryRaw y $executeRaw solo se usan en src/server/shared/db y en archivos *.repo.ts.",
   only: "[ARQ-09] Prohibido .only: dejaría el resto de las pruebas sin correr sin que nadie lo note.",
   sqlDirecto:
-    "[ARQ-10] El driver de Postgres (`pg`) solo se usa en src/server/shared/db y en tests/: fuera de ahí es SQL sin repositorio ni withPolicy (EN-14, S-1, F4-03b).",
+    "[ARQ-10] El driver de Postgres (`pg`) solo se usa en tests/: la app pasa por Prisma (@prisma/adapter-pg crea el pool). Fuera de ahí es SQL sin repositorio ni withPolicy (EN-14, S-1, F4-03b, F4-04a). En src/server/shared/db solo se importan sus TIPOS.",
 };
 
 // ---------------------------------------------------------------------------
@@ -91,9 +91,11 @@ const PRISMA_PATTERNS = [
 
 /**
  * Restricciones de importación de un alcance.
- * @param {{ domain?: boolean, nextServerOnly?: boolean, prisma: "todo" | "tipos" | "libre" }} o
+ * @param {{ domain?: boolean, nextServerOnly?: boolean, prisma: "todo" | "tipos" | "libre", sql?: "no" | "tipos" | "libre" }} o
+ *   `sql`: el driver `pg`. Por defecto "no" (ni tipos); "tipos" en src/server/shared/db (F4-04a);
+ *   "libre" solo en tests/.
  */
-function importes({ domain = false, nextServerOnly = false, prisma }) {
+function importes({ domain = false, nextServerOnly = false, prisma, sql = "no" }) {
   const paths = [];
   const patterns = [];
 
@@ -129,9 +131,17 @@ function importes({ domain = false, nextServerOnly = false, prisma }) {
     const allowTypeImports = prisma === "tipos";
     for (const name of PRISMA_PATHS) paths.push({ name, message, allowTypeImports });
     patterns.push({ group: PRISMA_PATTERNS, message, allowTypeImports });
-    // Donde Prisma está restringido, el driver crudo también (ni siquiera sus tipos).
-    for (const name of SQL_DIRECTO) paths.push({ name, message: MSG.sqlDirecto });
-    patterns.push({ group: SQL_DIRECTO.map((n) => `${n}/**`), message: MSG.sqlDirecto });
+  }
+
+  // El driver crudo (ARQ-10). Donde Prisma está restringido, ni siquiera sus tipos.
+  if (sql !== "libre") {
+    const allowTypeImports = sql === "tipos";
+    for (const name of SQL_DIRECTO) paths.push({ name, message: MSG.sqlDirecto, allowTypeImports });
+    patterns.push({
+      group: SQL_DIRECTO.map((n) => `${n}/**`),
+      message: MSG.sqlDirecto,
+      allowTypeImports,
+    });
   }
 
   return ["error", { paths, patterns }];
@@ -211,13 +221,13 @@ export default defineConfig([
 
   // 4) La capa de base de datos: aquí vive la instancia de Prisma.
   alcance(["src/server/shared/db/**/*.ts"], {
-    imp: importes({ nextServerOnly: true, prisma: "libre" }),
+    imp: importes({ nextServerOnly: true, prisma: "libre", sql: "tipos" }),
     sint: sintaxis({ rawSeguro: true }),
   }),
 
   // 5) El único archivo donde puede existir $transaction.
   alcance(["src/server/shared/db/locks.ts"], {
-    imp: importes({ nextServerOnly: true, prisma: "libre" }),
+    imp: importes({ nextServerOnly: true, prisma: "libre", sql: "tipos" }),
     sint: sintaxis({ rawSeguro: true, transaction: true }),
   }),
 
@@ -229,7 +239,7 @@ export default defineConfig([
 
   // 7) Pruebas fuera de src/: pueden importar lo que necesiten, pero ni $transaction ni .only.
   alcance(["tests/**/*.{ts,tsx}"], {
-    imp: importes({ prisma: "libre" }),
+    imp: importes({ prisma: "libre", sql: "libre" }),
     sint: sintaxis({ rawSeguro: true }),
   }),
 ]);
