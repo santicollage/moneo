@@ -19,6 +19,14 @@ pnpm dev                     # http://localhost:3000
 
 Sin `pnpm install` no hay hooks: el commit y el push saldrían sin revisar.
 
+**El servidor no arranca sin configuración válida** (RNF-SEG-11, `src/instrumentation.ts`): `pnpm dev` necesita en `.env` al menos `DATABASE_URL` (con Supabase local, la de `moneo_app` de la sección «Pruebas de la base») y `APP_ORIGIN`. El error nombra la variable que falta, nunca su valor.
+
+## API
+
+Todo Route Handler de `/api/v1` pasa por `manejar()` (`src/server/shared/http/manejar.ts`): `requestId`, `Origin` (403), cuerpo ≤ 16 KB (413), errores RFC 9457 sin mensajes internos (`problem.ts`, `errores.ts`), cabeceras de seguridad y `Cache-Control: no-store`, y una línea de log con la ruta como patrón (`log.ts`, lista permitida). Un tiempo límite de la base (55P03, 57014, 25P03, P2028) responde **503 `busy` con `Retry-After: 1`**, nunca 500.
+
+La base se usa solo con `db()` (`src/server/shared/db/client.ts`), creado al primer uso. Fuera de local exige TLS `verify-full` con la CA del proyecto en `DATABASE_CA_CERT`; la URL no puede traer `sslmode`.
+
 ## Scripts
 
 | Comando                 | Qué hace                                                                 |
@@ -60,6 +68,8 @@ $env:TEST_OWNER_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:54322/p
 $env:EXPECT_SUPABASE_ROLES   = "1"
 pnpm test:integration
 ```
+
+`tests/integration/api` prueba el cliente de la app (`crearPrisma`) con los tiempos del rol: `maxWait`, `lock_timeout` y el corte por 25P03 (≈ 25 s; imprime las medidas).
 
 En el CI corren en el job «Postgres 17», sin los roles de Supabase (la prueba de `anon`/`authenticated`/`service_role` se omite ahí y se repite contra staging en F5-07).
 
