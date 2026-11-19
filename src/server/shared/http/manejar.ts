@@ -26,9 +26,14 @@ export type DefRuta = {
 export type Contexto = {
   requestId: string;
   peticion: Request;
+  /** Parámetros de la ruta (`:spaceId`…), ya resueltos. Sin validar: los valida `withPolicy` o el manejador. */
+  params: Readonly<Record<string, string>>;
   /** Lee el cuerpo como JSON con el tope de 16 KB. Cuerpo vacío → `undefined`. */
   leerJson(): Promise<unknown>;
 };
+
+/** Segundo argumento que Next pasa a un Route Handler (Next 16: `params` es una promesa). */
+export type ArgsNext = { params?: Promise<Record<string, string | string[] | undefined>> };
 
 export type Manejador = (ctx: Contexto) => Promise<Response>;
 
@@ -52,6 +57,13 @@ const porDefecto: Dependencias = {
   ahora: () => performance.now(),
   nuevoId: () => crypto.randomUUID(),
 };
+
+async function resolverParams(args: ArgsNext | undefined): Promise<Record<string, string>> {
+  const crudo = (await args?.params) ?? {};
+  const salida: Record<string, string> = {};
+  for (const [k, v] of Object.entries(crudo)) if (typeof v === "string") salida[k] = v;
+  return salida;
+}
 
 async function leerConTope(peticion: Request): Promise<unknown> {
   const tipo = peticion.headers.get("content-type") ?? "";
@@ -98,7 +110,7 @@ function conCabeceras(res: Response, requestId: string): Response {
 export function manejar(def: DefRuta, fn: Manejador, deps: Partial<Dependencias> = {}) {
   const d: Dependencias = { ...porDefecto, ...deps };
 
-  return async function handler(peticion: Request): Promise<Response> {
+  return async function handler(peticion: Request, args?: ArgsNext): Promise<Response> {
     const requestId = d.nuevoId();
     const inicio = d.ahora();
     let respuesta: Response;
@@ -112,10 +124,12 @@ export function manejar(def: DefRuta, fn: Manejador, deps: Partial<Dependencias>
       if (largo !== null && !(Number(largo) <= CUERPO_MAXIMO)) {
         throw new ErrorApi("payload_too_large");
       }
+      const params = await resolverParams(args);
       let leido = false;
       respuesta = await fn({
         requestId,
         peticion,
+        params,
         leerJson: () => {
           if (leido) throw new Error("leerJson() se llamó dos veces");
           leido = true;

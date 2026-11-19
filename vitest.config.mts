@@ -17,7 +17,12 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "node",
-          include: ["src/**/*.test.ts", "tests/lint/**/*.test.ts", "tests/politicas/**/*.test.ts"],
+          include: [
+            "src/**/*.test.ts",
+            "tests/lint/**/*.test.ts",
+            "tests/politicas/**/*.test.ts",
+            "tests/autorizacion/**/*.test.ts",
+          ],
         },
       },
       {
