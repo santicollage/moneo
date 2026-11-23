@@ -20,3 +20,10 @@ auditConfig:
     # Vite/Vitest), que leen patrones del propio repo, nunca del usuario; `pnpm audit --prod` limpio.
     # Quitar cuando salga picomatch > 4.0.7, o si `pnpm audit --prod` lo vuelve a mostrar (R62).
     - GHSA-fc5q-39xc-vjpf
+    # GHSA-7589-6fvf-x4pw (effect <= 3.22.0, ReDoS en Schema.TemplateLiteral; parche en 3.22.1).
+    # Tolerado el 2026-11-23 (F4-04c-D8): solo llega por prisma > @prisma/config (CLI: migrate/generate),
+    # que Prisma fija en effect 3.20.0. Moneo no importa effect y el cliente generado ni @prisma/client
+    # lo importan en runtime; la única entrada que procesa es prisma.config.ts, del propio repo.
+    # Quitar cuando @prisma/config traiga effect >= 3.22.1, o si Moneo importa effect, o si el
+    # runtime del cliente lo usa. Revisar el 2026-12-07.
+    - GHSA-7589-6fvf-x4pw
