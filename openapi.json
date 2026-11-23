@@ -1,0 +1,160 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Moneo API",
+    "version": "v1",
+    "description": "Generado desde src/contracts/shared/routes.ts (F4-04c). No editar a mano: `pnpm openapi`."
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "E-01",
+        "summary": "system.health",
+        "x-moneo-action": "system.health",
+        "x-moneo-access": "public",
+        "responses": {
+          "200": {
+            "description": "Éxito (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "ok"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`busy`, `unavailable`",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "urn:moneo:problem:too_many_attempts"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "invalid_cursor",
+              "idempotency_key_missing",
+              "unauthenticated",
+              "invalid_credentials",
+              "forbidden",
+              "origin_mismatch",
+              "not_found",
+              "version_conflict",
+              "balance_changed",
+              "insufficient_unassigned",
+              "preview_stale",
+              "resource_archived",
+              "has_balance",
+              "has_movements",
+              "negative_available",
+              "name_taken",
+              "holder_inactive",
+              "already_voided",
+              "not_editable",
+              "already_in_space",
+              "already_member",
+              "space_full",
+              "payload_too_large",
+              "invalid_reference",
+              "date_out_of_range",
+              "period_out_of_range",
+              "amount_out_of_range",
+              "range_too_large",
+              "idempotency_key_reused",
+              "too_many_attempts",
+              "internal",
+              "busy",
+              "unavailable"
+            ]
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "rule"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "additionalProperties": false,
+        "description": "RFC 9457. El cliente decide por `code`."
+      }
+    }
+  }
+}

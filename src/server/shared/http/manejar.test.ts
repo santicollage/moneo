@@ -117,6 +117,17 @@ describe("manejar(): orden T-2, cabeceras y errores", () => {
     expect(await r.text()).toBe(CUERPO_404);
   });
 
+  it("F4-04c: ErrorApi too_many_attempts → 429 con su Retry-After y no se reporta", async () => {
+    const { h, reportar } = montar(async () => {
+      throw new ErrorApi("too_many_attempts", undefined, 450);
+    });
+    const res = await h(post("{}"));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("450");
+    expect(await res.json()).toMatchObject({ code: "too_many_attempts", requestId: ID });
+    expect(reportar).not.toHaveBeenCalled();
+  });
+
   it("R68: 55P03 por Prisma → 503 busy con Retry-After, nunca 500, y no se reporta", async () => {
     const { h, reportar } = montar(async () => {
       throw Object.assign(new Error("Raw query failed. Code: `55P03`"), {
@@ -148,6 +159,7 @@ describe("manejar(): orden T-2, cabeceras y errores", () => {
       requestId: ID,
       ruta: "/api/v1/spaces/:spaceId/movements",
       errorCode: "TypeError",
+      metodo: "POST",
     });
   });
 

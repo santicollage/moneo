@@ -11,6 +11,7 @@
  */
 import { config } from "../config";
 import { logger as loggerPorDefecto, type Logger, type Metodo } from "../log";
+import { reporteroPorDefecto } from "../sentry";
 import { CABECERAS_API } from "./cabeceras";
 import { clasificar, ErrorApi } from "./errores";
 import { respuestaProblema } from "./problem";
@@ -37,11 +38,15 @@ export type ArgsNext = { params?: Promise<Record<string, string | string[] | und
 
 export type Manejador = (ctx: Contexto) => Promise<Response>;
 
-/** Hook para reportar errores inesperados (Sentry, F4-04c). Recibe solo códigos e ids. */
+/**
+ * Hook para reportar errores inesperados (Sentry, F4-04c). Recibe el error y solo códigos e ids;
+ * el reportero arma lo que sale con la lista permitida (`sentry.ts`). Se espera antes de responder
+ * (en Vercel la función se congela al responder): el reportero de Sentry tiene su propio tope de 2 s.
+ */
 export type Reportar = (
   err: unknown,
-  datos: { requestId: string; ruta: string; errorCode: string },
-) => void;
+  datos: { requestId: string; ruta: string; errorCode: string; metodo: Metodo },
+) => void | Promise<void>;
 
 export type Dependencias = {
   appOrigin: () => string;
@@ -56,6 +61,8 @@ const porDefecto: Dependencias = {
   log: loggerPorDefecto,
   ahora: () => performance.now(),
   nuevoId: () => crypto.randomUUID(),
+  // Sin SENTRY_DSN (local, CI) no hay reportero: no sale nada.
+  reportar: (err, datos) => reporteroPorDefecto()?.(err, datos),
 };
 
 async function resolverParams(args: ArgsNext | undefined): Promise<Record<string, string>> {
@@ -139,7 +146,7 @@ export function manejar(def: DefRuta, fn: Manejador, deps: Partial<Dependencias>
     } catch (err) {
       const c = clasificar(err);
       errorCode = c.errorCode;
-      respuesta = respuestaProblema(c.codigo, requestId, c.extensiones);
+      respuesta = respuestaProblema(c.codigo, requestId, c.extensiones, c.reintentoSegundos);
       if (c.inesperado) {
         d.log.error("request_failed", {
           route: def.ruta,
@@ -148,7 +155,7 @@ export function manejar(def: DefRuta, fn: Manejador, deps: Partial<Dependencias>
           errorCode,
         });
         try {
-          d.reportar?.(err, { requestId, ruta: def.ruta, errorCode });
+          await d.reportar?.(err, { requestId, ruta: def.ruta, errorCode, metodo: def.metodo });
         } catch {
           // Un fallo del reporte nunca cambia la respuesta.
         }

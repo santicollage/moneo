@@ -16,6 +16,8 @@ export class ErrorApi extends Error {
   constructor(
     public readonly codigo: CodigoProblema,
     public readonly extensiones?: ExtensionesProblema,
+    /** Segundos de `Retry-After` (F4-04c: 429 hasta que abre la ventana). */
+    public readonly reintentoSegundos?: number,
   ) {
     super(codigo);
     this.name = "ErrorApi";
@@ -68,6 +70,8 @@ export type Clasificacion = {
   errorCode: string;
   /** `false` para errores esperados: no van a Sentry (F4-04c). */
   inesperado: boolean;
+  /** `Retry-After` propio del error (429); si falta, el de `problem.ts` por código. */
+  reintentoSegundos?: number;
 };
 
 export function clasificar(err: unknown): Clasificacion {
@@ -77,6 +81,7 @@ export function clasificar(err: unknown): Clasificacion {
       extensiones: err.extensiones,
       errorCode: err.codigo,
       inesperado: false,
+      reintentoSegundos: err.reintentoSegundos,
     };
   }
   const e = (typeof err === "object" && err !== null ? err : {}) as Forma;

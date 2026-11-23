@@ -7,3 +7,6 @@ node_modules/
 next-env.d.ts
 pnpm-lock.yaml
 src/server/shared/db/generated/
+
+# F4-04c: generado por `pnpm openapi`; el test lo compara byte a byte
+openapi.json
