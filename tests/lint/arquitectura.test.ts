@@ -630,6 +630,62 @@ describe("PROM-01 promesa sin await (no-floating-promises)", () => {
   }
 });
 
+pruebaDe(
+  "ARQ-11",
+  "@supabase/* solo en src/server/shared/auth (EN-11, D-06)",
+  [
+    {
+      nombre: "componente de React importa el cliente de Supabase",
+      ruta: "src/app/plan/page.tsx",
+      codigo:
+        'import { createBrowserClient } from "@supabase/ssr";\nexport const x = createBrowserClient;',
+    },
+    {
+      nombre: "Route Handler crea su propio cliente",
+      ruta: "src/app/api/v1/auth/login/route.ts",
+      codigo:
+        'import { createServerClient } from "@supabase/ssr";\nexport const x = createServerClient;',
+    },
+    {
+      nombre: "servicio importa supabase-js",
+      ruta: "src/server/spaces/space.service.ts",
+      codigo:
+        'import { createClient } from "@supabase/supabase-js";\nexport const x = createClient;',
+    },
+    {
+      nombre: "el proxy importa @supabase/ssr directamente",
+      ruta: "src/proxy.ts",
+      codigo:
+        'import { createServerClient } from "@supabase/ssr";\nexport const x = createServerClient;',
+    },
+    {
+      nombre: "subruta de un paquete de Supabase",
+      ruta: "src/server/shared/db/x.ts",
+      codigo: 'import { x } from "@supabase/ssr/dist/main/utils";\nexport const y = x;',
+    },
+  ],
+  [
+    {
+      nombre: "el módulo de Auth",
+      ruta: "src/server/shared/auth/cliente-auth.ts",
+      codigo:
+        'import { createServerClient } from "@supabase/ssr";\nexport const x = createServerClient;',
+    },
+    {
+      nombre: "una prueba",
+      ruta: "tests/auth-local/sesion-real.test.ts",
+      codigo:
+        'import { createClient } from "@supabase/supabase-js";\nexport const x = createClient;',
+    },
+    {
+      nombre: "el proxy usa el módulo de Auth",
+      ruta: "src/proxy.ts",
+      codigo:
+        'import { refrescarSiHaceFalta } from "@/server/shared/auth/refresco";\nexport const x = refrescarSiHaceFalta;',
+    },
+  ],
+);
+
 describe("PROM-02 promesa donde se espera un valor o una función sin resultado (no-misused-promises)", () => {
   it("debe fallar: async dentro de forEach (nadie espera su resultado)", async () => {
     const codigo =

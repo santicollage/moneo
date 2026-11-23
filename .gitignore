@@ -43,3 +43,6 @@ next-env.d.ts
 
 # cliente Prisma generado (B0-6)
 /src/server/shared/db/generated/
+
+# Supabase local: clave PRIVADA de firma de JWT (F4-05a). Nunca al repositorio.
+/supabase/signing_keys.json

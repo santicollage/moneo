@@ -37,6 +37,8 @@ const MSG = {
   rawSeguro:
     "[ARQ-08] $queryRaw y $executeRaw solo se usan en src/server/shared/db y en archivos *.repo.ts.",
   only: "[ARQ-09] Prohibido .only: dejaría el resto de las pruebas sin correr sin que nadie lo note.",
+  supabase:
+    "[ARQ-11] @supabase/ssr y @supabase/supabase-js solo se importan en src/server/shared/auth: ahí está el único cliente de Auth (EN-11) y el navegador nunca usa Supabase (D-06). La sesión se pide a withPolicy.",
   sqlDirecto:
     "[ARQ-10] El driver de Postgres (`pg`) solo se usa en tests/: la app pasa por Prisma (@prisma/adapter-pg crea el pool). Fuera de ahí es SQL sin repositorio ni withPolicy (EN-14, S-1, F4-03b, F4-04a). En src/server/shared/db solo se importan sus TIPOS.",
 };
@@ -81,6 +83,7 @@ function sintaxis({ transaction = false, rawSeguro = false } = {}) {
 const PRISMA_PATHS = ["@prisma/client", "@prisma/adapter-pg"];
 // Drivers de Postgres sin Prisma. `pg` es dependencia directa desde F4-03b (pruebas de la base).
 const SQL_DIRECTO = ["pg", "pg-pool", "pg-native", "postgres"];
+const SUPABASE = ["@supabase/ssr", "@supabase/supabase-js"];
 const PRISMA_PATTERNS = [
   "@prisma/**",
   "**/shared/db/generated",
@@ -91,11 +94,11 @@ const PRISMA_PATTERNS = [
 
 /**
  * Restricciones de importación de un alcance.
- * @param {{ domain?: boolean, nextServerOnly?: boolean, prisma: "todo" | "tipos" | "libre", sql?: "no" | "tipos" | "libre" }} o
+ * @param {{ domain?: boolean, nextServerOnly?: boolean, prisma: "todo" | "tipos" | "libre", sql?: "no" | "tipos" | "libre", supabase?: "no" | "libre" }} o
  *   `sql`: el driver `pg`. Por defecto "no" (ni tipos); "tipos" en src/server/shared/db (F4-04a);
  *   "libre" solo en tests/.
  */
-function importes({ domain = false, nextServerOnly = false, prisma, sql = "no" }) {
+function importes({ domain = false, nextServerOnly = false, prisma, sql = "no", supabase = "no" }) {
   const paths = [];
   const patterns = [];
 
@@ -142,6 +145,12 @@ function importes({ domain = false, nextServerOnly = false, prisma, sql = "no" }
       message: MSG.sqlDirecto,
       allowTypeImports,
     });
+  }
+
+  // Supabase (ARQ-11). En el dominio ya lo prohíbe ARQ-01 con su propio mensaje.
+  if (supabase !== "libre" && !domain) {
+    for (const name of SUPABASE) paths.push({ name, message: MSG.supabase });
+    patterns.push({ group: ["@supabase/**"], message: MSG.supabase });
   }
 
   return ["error", { paths, patterns }];
@@ -231,6 +240,12 @@ export default defineConfig([
     sint: sintaxis({ rawSeguro: true, transaction: true }),
   }),
 
+  // 5b) El cliente de Auth y la cookie de sesión: único lugar con @supabase/* (ARQ-11, EN-11).
+  alcance(["src/server/shared/auth/**/*.ts"], {
+    imp: importes({ nextServerOnly: true, prisma: "todo", supabase: "libre" }),
+    sint: sintaxis(),
+  }),
+
   // 6) Dominio: TypeScript puro, sin framework ni capas externas.
   alcance(["src/domain/**/*.ts"], {
     imp: importes({ domain: true, prisma: "todo" }),
@@ -239,7 +254,7 @@ export default defineConfig([
 
   // 7) Pruebas fuera de src/: pueden importar lo que necesiten, pero ni $transaction ni .only.
   alcance(["tests/**/*.{ts,tsx}"], {
-    imp: importes({ prisma: "libre", sql: "libre" }),
+    imp: importes({ prisma: "libre", sql: "libre", supabase: "libre" }),
     sint: sintaxis({ rawSeguro: true }),
   }),
 ]);

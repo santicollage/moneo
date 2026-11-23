@@ -10,6 +10,9 @@
  *     clave del límite de intentos; F4-05: Supabase Auth y la lista permitida).
  *   - F4-04c: `RATE_LIMIT_HASH_KEY` es obligatoria en todo entorno (sin ella no hay límite de
  *     intentos, RNF-SEG-02); `SENTRY_DSN` es opcional (vacía = no se reporta nada).
+ *   - F4-05a: `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` son obligatorias (sesión, EN-11). La
+ *     clave secreta de Supabase NO existe en la app (S-7 por hook, F4-05-D1): si alguien pega una
+ *     clave secreta o una `service_role` en la variable pública, el arranque falla.
  */
 import { z } from "zod";
 
@@ -36,6 +39,18 @@ export type ConfigSentry = {
   dsn: string;
 };
 
+/** Supabase Auth, solo desde el servidor (D-06, EN-11). */
+export type ConfigSupabase = {
+  /** Origen del proyecto (`https://<ref>.supabase.co`, o `http://127.0.0.1:54321` en local). */
+  url: string;
+  /** Clave pública (`sb_publishable_…`). Pública por diseño; el servidor la usa para Auth. */
+  clavePublica: string;
+  /** `iss` esperado en el JWT: `<url>/auth/v1`. */
+  emisor: string;
+  /** Claves públicas de firma del proyecto (JWKS). */
+  jwks: string;
+};
+
 export type Entorno = "production" | "preview" | "development" | "local";
 
 export type Config = {
@@ -51,6 +66,9 @@ export type Config = {
   /** Llave del HMAC de `rate_limit_counter.key_hash` (RNF-PRI-01: nunca el correo ni la IP en claro). */
   llaveIntentos: string;
   sentry: ConfigSentry | undefined;
+  supabase: ConfigSupabase;
+  /** Cookies de sesión con `Secure`: siempre que APP_ORIGIN sea https. */
+  cookiesSeguras: boolean;
 };
 
 const esquema = z
@@ -62,6 +80,8 @@ const esquema = z
     VERCEL_GIT_COMMIT_SHA: z.string().optional(),
     RATE_LIMIT_HASH_KEY: z.string({ error: "falta" }).min(1, { error: "falta" }),
     SENTRY_DSN: z.string().optional(),
+    SUPABASE_URL: z.string({ error: "falta" }).min(1, { error: "falta" }),
+    SUPABASE_PUBLISHABLE_KEY: z.string({ error: "falta" }).min(1, { error: "falta" }),
   })
   .loose();
 
@@ -102,6 +122,26 @@ function leerDsn(valor: string): ConfigSentry | string {
     clavePublica: decodeURIComponent(u.username),
     dsn: valor,
   };
+}
+
+/** `null` si la clave sirve como clave pública; si no, el motivo (sin el valor). */
+function problemaClavePublica(clave: string): string | null {
+  if (clave.startsWith("sb_secret_")) return "es una clave SECRETA; usa la publishable";
+  // Clave heredada (JWT): se mira el rol sin verificar la firma, solo para atajar un error de pegado.
+  const partes = clave.split(".");
+  if (partes.length === 3) {
+    try {
+      const carga = JSON.parse(Buffer.from(partes[1]!, "base64url").toString("utf8")) as {
+        role?: unknown;
+      };
+      if (carga.role === "service_role") return "es la clave service_role; usa la publishable";
+    } catch {
+      return "no es una clave válida";
+    }
+    return null;
+  }
+  if (!clave.startsWith("sb_publishable_")) return "debe empezar por sb_publishable_";
+  return null;
 }
 
 /** Valida un entorno (por defecto `process.env`). Función pura: es lo que prueban las pruebas. */
@@ -168,7 +208,19 @@ export function cargarConfig(env: Record<string, string | undefined>): Config {
     else sentry = r;
   }
 
+  const supa = leerUrl(e.SUPABASE_URL);
+  if (!supa || !["http:", "https:"].includes(supa.protocol)) {
+    problemas.push("SUPABASE_URL: debe ser una URL http(s)");
+  } else if (supa.origin !== e.SUPABASE_URL) {
+    problemas.push("SUPABASE_URL: solo el origen, sin ruta ni barra final");
+  } else if (e.VERCEL_ENV && (supa.protocol !== "https:" || HOSTS_LOCALES.has(supa.hostname))) {
+    problemas.push("SUPABASE_URL: en Vercel debe ser https y no local");
+  }
+  const problemaClave = problemaClavePublica(e.SUPABASE_PUBLISHABLE_KEY);
+  if (problemaClave) problemas.push(`SUPABASE_PUBLISHABLE_KEY: ${problemaClave}`);
+
   if (problemas.length > 0) throw new ErrorConfig(problemas);
+  const emisor = `${e.SUPABASE_URL}/auth/v1`;
   return {
     baseDatos: { url: e.DATABASE_URL, local, ca },
     appOrigin: e.APP_ORIGIN,
@@ -180,6 +232,13 @@ export function cargarConfig(env: Record<string, string | undefined>): Config {
         : undefined,
     llaveIntentos: e.RATE_LIMIT_HASH_KEY,
     sentry,
+    supabase: {
+      url: e.SUPABASE_URL,
+      clavePublica: e.SUPABASE_PUBLISHABLE_KEY,
+      emisor,
+      jwks: `${emisor}/.well-known/jwks.json`,
+    },
+    cookiesSeguras: e.APP_ORIGIN.startsWith("https:"),
   };
 }
 

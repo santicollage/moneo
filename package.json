@@ -14,12 +14,16 @@
     "test:watch": "vitest --project unit",
     "test:integration": "vitest run --project integration",
     "test:pooler-real": "vitest run --project pooler-real",
+    "test:auth-local": "vitest run --project auth-local",
     "openapi": "vitest run --project unit tests/politicas/openapi.test.ts --update",
     "prepare": "husky"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.2",
+    "jose": "6.2.18",
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
