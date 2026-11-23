@@ -29,6 +29,8 @@ export type Actor = {
 
 export type ContextoPolitica = Omit<Contexto, "params"> & {
   readonly actor: Actor;
+  /** La sesión verificada (`null` solo en rutas `public`). No se pasa a los servicios: ellos reciben `actor`. */
+  readonly sesion: Sesion | null;
   readonly params: Readonly<Record<string, string>>;
 };
 
@@ -133,6 +135,6 @@ export function aplicarPolitica(
     if (veredicto !== "ok") throw new ErrorApi(veredicto);
 
     const actor: Actor = { profileId: sesion?.profileId ?? "", spaceId, rol };
-    return fn({ ...ctx, actor });
+    return fn({ ...ctx, actor, sesion });
   };
 }

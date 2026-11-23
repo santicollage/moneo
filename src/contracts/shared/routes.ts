@@ -72,8 +72,8 @@ export type DefinicionRuta = {
   };
   /** Códigos de error propios de la ruta (§1.6), además de los de la política y los de infraestructura. */
   readonly errors: readonly string[];
-  /** Esquema de salida por estado (F4-04c los usa para OpenAPI). */
-  readonly output: Readonly<Record<number, z.ZodType>>;
+  /** Esquema de salida por estado (F4-04c los usa para OpenAPI). `null` = sin cuerpo (204). */
+  readonly output: Readonly<Record<number, z.ZodType | null>>;
 };
 
 export const RUTAS = {
@@ -86,6 +86,47 @@ export const RUTAS = {
     example: {},
     errors: ["unavailable"],
     output: { 200: z.strictObject({ status: z.literal("ok") }) },
+  },
+  "E-06": {
+    id: "E-06",
+    method: "POST",
+    path: "/api/v1/auth/logout",
+    action: "auth.logout",
+    access: "session",
+    example: {},
+    errors: [],
+    output: { 204: null },
+  },
+  "E-07": {
+    id: "E-07",
+    method: "POST",
+    path: "/api/v1/auth/logout-all",
+    action: "auth.logout_all",
+    access: "session",
+    example: {},
+    errors: [],
+    output: { 204: null },
+  },
+  "E-10": {
+    id: "E-10",
+    method: "GET",
+    path: "/api/v1/me",
+    action: "me.read",
+    access: "session",
+    example: {},
+    errors: [],
+    output: {
+      200: z.strictObject({
+        profile: z.strictObject({ id: z.uuid(), displayName: z.string(), email: z.string() }),
+        memberships: z.array(
+          z.strictObject({
+            spaceId: z.uuid(),
+            spaceName: z.string(),
+            role: z.enum(["owner", "collaborator"]),
+          }),
+        ),
+      }),
+    },
   },
 } as const satisfies Record<string, DefinicionRuta>;
 

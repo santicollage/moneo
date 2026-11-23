@@ -63,7 +63,8 @@ describe("401 sin token", () => {
     },
   );
 
-  it("el verificador por defecto (F4-05 aún no existe) falla cerrado", async () => {
+  it("F4-05a: el verificador de la app, sin cookie, da null sin leer la configuración ni la red", async () => {
+    // En esta prueba no hay variables de entorno: si el verificador leyera la configuración, lanzaría.
     expect(await verificadorActivo()(new Request("https://app.test/x"))).toBeNull();
   });
 });
@@ -90,7 +91,7 @@ describe("404 uniforme (S-5, A-8)", () => {
 
 describe("recovery_session (EN-10, T-12)", () => {
   const hechos = (amr: { method: string; timestamp: number }[]) => ({
-    sesion: { profileId: "p", amr },
+    sesion: { profileId: "p", amr, correo: "p@moneo.test" },
     rol: null,
     tieneEspacio: false,
     ahoraS: AHORA_S,

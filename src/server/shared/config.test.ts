@@ -6,11 +6,19 @@ const REMOTA =
   "postgresql://moneo_app.ref:SECRETO-XYZ@aws-1-us-east-1.pooler.supabase.com:6543/postgres";
 const LOCAL = "postgresql://moneo_app:SECRETO-XYZ@127.0.0.1:54322/postgres";
 const LLAVE = "llave-de-prueba-de-32-caracteres-o-mas";
+// Marcadores armados por partes: gitleaks escanea todo el historial (regla de F4-04c).
+const PUBLICA = "sb_" + "publishable_" + "MARCADOR-local";
+const SUPA_LOCAL = "http://127.0.0.1:54321";
 const base = {
   DATABASE_URL: LOCAL,
   APP_ORIGIN: "http://localhost:3000",
   RATE_LIMIT_HASH_KEY: LLAVE,
+  SUPABASE_URL: SUPA_LOCAL,
+  SUPABASE_PUBLISHABLE_KEY: PUBLICA,
 };
+/** JWT sin firma válida, solo para la carga: así se ve una clave heredada de Supabase. */
+const jwtCon = (carga: object) =>
+  ["e30", Buffer.from(JSON.stringify(carga)).toString("base64url"), "firma"].join(".");
 const DSN = "https://abc123publica@o4501.ingest.us.sentry.io/4507001";
 
 function problemas(env: Record<string, string | undefined>): string[] {
@@ -33,7 +41,23 @@ describe("RNF-SEG-11 configuración validada", () => {
       version: undefined,
       llaveIntentos: LLAVE,
       sentry: undefined,
+      supabase: {
+        url: SUPA_LOCAL,
+        clavePublica: PUBLICA,
+        emisor: `${SUPA_LOCAL}/auth/v1`,
+        jwks: `${SUPA_LOCAL}/auth/v1/.well-known/jwks.json`,
+      },
+      cookiesSeguras: false,
     });
+  });
+
+  it("F4-05a: clave heredada anon aceptada; https → cookies seguras", () => {
+    const c = cargarConfig({
+      ...base,
+      SUPABASE_PUBLISHABLE_KEY: jwtCon({ role: "anon" }),
+      APP_ORIGIN: "https://moneo.test",
+    });
+    expect(c.cookiesSeguras).toBe(true);
   });
 
   it("remota con CA: TLS verify-full; acepta saltos de línea escapados", () => {
@@ -108,6 +132,39 @@ describe("RNF-SEG-11 configuración validada", () => {
       { ...base, VERCEL_ENV: "preview", APP_ORIGIN: "https://x.vercel.app" },
       "host local",
     ],
+    ["F4-05a sin SUPABASE_URL", { ...base, SUPABASE_URL: undefined }, "SUPABASE_URL"],
+    [
+      "F4-05a sin clave pública",
+      { ...base, SUPABASE_PUBLISHABLE_KEY: undefined },
+      "SUPABASE_PUBLISHABLE_KEY",
+    ],
+    [
+      "F4-05a clave secreta en la variable pública",
+      { ...base, SUPABASE_PUBLISHABLE_KEY: "sb_" + "secret_" + "MARCADOR" },
+      "SUPABASE_PUBLISHABLE_KEY: es una clave SECRETA",
+    ],
+    [
+      "F4-05a service_role heredada en la variable pública",
+      { ...base, SUPABASE_PUBLISHABLE_KEY: jwtCon({ role: "service_role" }) },
+      "service_role",
+    ],
+    [
+      "F4-05a clave con otra forma",
+      { ...base, SUPABASE_PUBLISHABLE_KEY: "cualquier-cosa" },
+      "sb_publishable_",
+    ],
+    ["F4-05a SUPABASE_URL con ruta", { ...base, SUPABASE_URL: `${SUPA_LOCAL}/` }, "solo el origen"],
+    [
+      "F4-05a Vercel con Supabase local",
+      {
+        ...base,
+        DATABASE_URL: REMOTA,
+        DATABASE_CA_CERT: CA,
+        APP_ORIGIN: "https://x.vercel.app",
+        VERCEL_ENV: "preview",
+      },
+      "SUPABASE_URL: en Vercel",
+    ],
     [
       "Vercel con http",
       { ...base, DATABASE_URL: REMOTA, DATABASE_CA_CERT: CA, VERCEL_ENV: "production" },
@@ -124,6 +181,7 @@ describe("RNF-SEG-11 configuración validada", () => {
       DATABASE_URL: REMOTA,
       DATABASE_CA_CERT: CA,
       APP_ORIGIN: "https://moneo.vercel.app",
+      SUPABASE_URL: "https://ref.supabase.co",
       VERCEL_ENV: "preview",
       VERCEL_GIT_COMMIT_SHA: sha,
       SENTRY_DSN: ` ${DSN} `,
@@ -150,6 +208,8 @@ describe("RNF-SEG-11 configuración validada", () => {
       { DATABASE_URL: "SECRETO-XYZ", APP_ORIGIN: "SECRETO-XYZ" },
       { ...base, RATE_LIMIT_HASH_KEY: "SECRETO-XYZ" },
       { ...base, SENTRY_DSN: "http://SECRETO-XYZ@o1.ingest.sentry.io/1" },
+      { ...base, SUPABASE_PUBLISHABLE_KEY: "sb_" + "secret_" + "SECRETO-XYZ" },
+      { ...base, SUPABASE_URL: "SECRETO-XYZ" },
     ];
     for (const env of envs) {
       try {

@@ -54,10 +54,13 @@ export function codigosDeError(def: DefinicionRuta): CodigoProblema[] {
 function respuestas(def: DefinicionRuta) {
   const salida: Record<string, unknown> = {};
   for (const [estado, esquema] of Object.entries(def.output)) {
-    salida[estado] = {
-      description: `Éxito (${estado})`,
-      content: { "application/json": { schema: esquema } },
-    };
+    salida[estado] =
+      esquema === null
+        ? { description: `Éxito (${estado}), sin cuerpo` }
+        : {
+            description: `Éxito (${estado})`,
+            content: { "application/json": { schema: esquema } },
+          };
   }
   const porEstado = new Map<number, CodigoProblema[]>();
   for (const c of codigosDeError(def)) {

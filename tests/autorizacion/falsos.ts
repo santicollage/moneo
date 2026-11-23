@@ -14,10 +14,10 @@ export const OTRO_ESPACIO = "22222222-2222-4222-8222-222222222222";
 export const AHORA_S = 1_800_000_000;
 
 export const SESIONES: Record<Exclude<Sujeto, "An">, Sesion> = {
-  SE: { profileId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", amr: [] },
-  Pr: { profileId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", amr: [] },
-  Co: { profileId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", amr: [] },
-  Ot: { profileId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", amr: [] },
+  SE: { profileId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", amr: [], correo: "a@moneo.test" },
+  Pr: { profileId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", amr: [], correo: "b@moneo.test" },
+  Co: { profileId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", amr: [], correo: "c@moneo.test" },
+  Ot: { profileId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", amr: [], correo: "d@moneo.test" },
 };
 
 /** Membresías del mundo falso: Pr y Co en ESPACIO; Ot en OTRO_ESPACIO; SE en ninguno. */

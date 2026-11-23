@@ -15,7 +15,8 @@ export type EventoLog =
   | "db_pool_error"
   | "db_connection_error"
   | "db_unreachable"
-  | "config_invalid";
+  | "config_invalid"
+  | "session_refresh_failed";
 
 export type Nivel = "info" | "warn" | "error";
 export type Metodo = "GET" | "POST" | "PATCH" | "PUT";
@@ -42,6 +43,7 @@ const EVENTOS = new Set<string>([
   "db_connection_error",
   "db_unreachable",
   "config_invalid",
+  "session_refresh_failed",
 ]);
 const METODOS = new Set<string>(["GET", "POST", "PATCH", "PUT"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
