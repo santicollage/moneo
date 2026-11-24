@@ -33,6 +33,7 @@ if ($env:MONEO_APP_URL -notmatch ':5432/' -or $env:MONEO_OWNER_URL -notmatch ':5
 $resultados = [ordered]@{}
 function Paso([string]$nombre, [scriptblock]$accion) {
   Write-Host "`n=== $nombre ===" -ForegroundColor Cyan
+  $global:LASTEXITCODE = 0   # F4-05c: un script de PowerShell que termina bien no lo pone a 0 y heredaba el del paso anterior
   & $accion
   $resultados[$nombre] = if ($LASTEXITCODE -eq 0) { 'ok' } else { "FALLA (código $LASTEXITCODE)" }
 }
@@ -44,7 +45,8 @@ function EnDocker([string]$url, [string]$comando) {
 Write-Host ("Moneo · F4-03c · verificación de {0} · {1:yyyy-MM-dd HH:mm}" -f $Entorno, (Get-Date))
 
 Paso 'Catálogo como dueño (0, 1, H2, RLS, S-2, 6, MIG)' {
-  EnDocker $env:MONEO_OWNER_URL 'psql "$DB" -X -v ON_ERROR_STOP=1 -f /w/scripts/supabase-real/catalogo-dueno.sql | tee /tmp/c.txt && ! grep -q "^ RESUMEN .*FALLA" /tmp/c.txt'
+  # F4-05c: correr-sql.sh exige el código de salida de psql y la línea RESUMEN en ok (ver su cabecera).
+  EnDocker $env:MONEO_OWNER_URL 'sh /w/scripts/supabase-real/correr-sql.sh /w/scripts/supabase-real/catalogo-dueno.sql catalogo'
 }
 Paso 'Manifiesto de permisos (S-3, heredado 3)' {
   $salida = "salida/permisos-$Entorno.json"
@@ -62,7 +64,7 @@ Paso 'Data API con la clave pública (3, S-2)' {
   & "$aqui/probar-data-api.ps1" -Url $env:MONEO_SUPABASE_URL -Clave $claves
 }
 Paso 'Hook de registro en la base (S-7, F4-05b)' {
-  EnDocker $env:MONEO_OWNER_URL 'psql "$DB" -X -v ON_ERROR_STOP=1 -f /w/scripts/supabase-real/hook-registro.sql | tee /tmp/h.txt && ! grep -q "RESUMEN FALLA" /tmp/h.txt'
+  EnDocker $env:MONEO_OWNER_URL 'sh /w/scripts/supabase-real/correr-sql.sh /w/scripts/supabase-real/hook-registro.sql hook'
 }
 Paso 'Registro directo rechazado por el hook (S-7, F4-05b)' {
   & "$aqui/probar-registro-cerrado.ps1" -Url $env:MONEO_SUPABASE_URL -Clave $env:MONEO_PUBLISHABLE_KEY
