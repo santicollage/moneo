@@ -12,5 +12,6 @@ SELECT 'allocation', count(*), coalesce(sum(amount_cents), 0) FROM allocation UN
 SELECT 'movement', count(*), coalesce(sum(amount_cents), 0) FROM movement UNION ALL
 SELECT 'audit_event', count(*), 0 FROM audit_event UNION ALL
 SELECT 'rate_limit_counter', count(*), 0 FROM rate_limit_counter UNION ALL
+SELECT 'signup_gate.allowed_email', count(*), 0 FROM signup_gate.allowed_email UNION ALL
 SELECT '_prisma_migrations', count(*), 0 FROM _prisma_migrations
 ORDER BY 1;

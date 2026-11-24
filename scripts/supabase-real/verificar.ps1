@@ -61,6 +61,12 @@ Paso 'Data API con la clave pública (3, S-2)' {
   $claves = @($env:MONEO_PUBLISHABLE_KEY) + @($env:MONEO_ANON_KEY | Where-Object { $_ })
   & "$aqui/probar-data-api.ps1" -Url $env:MONEO_SUPABASE_URL -Clave $claves
 }
+Paso 'Hook de registro en la base (S-7, F4-05b)' {
+  EnDocker $env:MONEO_OWNER_URL 'psql "$DB" -X -v ON_ERROR_STOP=1 -f /w/scripts/supabase-real/hook-registro.sql | tee /tmp/h.txt && ! grep -q "RESUMEN FALLA" /tmp/h.txt'
+}
+Paso 'Registro directo rechazado por el hook (S-7, F4-05b)' {
+  & "$aqui/probar-registro-cerrado.ps1" -Url $env:MONEO_SUPABASE_URL -Clave $env:MONEO_PUBLISHABLE_KEY
+}
 if ($Entorno -eq 'staging') {
   Paso 'pg_dump, foto y Auth por el pooler de sesión (4, 6, 7)' {
     EnDocker $env:MONEO_OWNER_URL 'bash /w/scripts/supabase-real/probar-dump.sh'

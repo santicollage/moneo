@@ -42,3 +42,25 @@ export async function leerPerfilConMembresias(
     })),
   };
 }
+
+export type EscritorPerfil = Pick<PrismaClient, "profile">;
+
+/**
+ * Crea el perfil si no existe (M-2 enmendada por F4-05b-D2). Idempotente: `INSERT … ON CONFLICT
+ * DO NOTHING` (solo pide el permiso de INSERT que ya tiene moneo_app). Si el perfil ya existe, no
+ * toca su nombre.
+ *
+ * Se llama en E-04 (al confirmar el correo) y en E-05 (al entrar): así ninguna cuenta sin confirmar
+ * tiene perfil, y uno que faltara (la base cayó en E-04) se repara en el siguiente login, antes de
+ * que la cookie de sesión salga. Sin esto, `/me` daría 500 para siempre (F4-05a-D1).
+ */
+export async function asegurarPerfil(
+  profileId: string,
+  displayName: string,
+  escritor: EscritorPerfil = db(),
+): Promise<void> {
+  await escritor.profile.createMany({
+    data: [{ id: profileId, displayName }],
+    skipDuplicates: true,
+  });
+}

@@ -154,9 +154,10 @@ c(punto, comprobacion, ok, detalle) AS (
          to_regclass('auth.users') IS NOT NULL
            AND NOT has_table_privilege('moneo_app', 'auth.users', 'SELECT'), ''
   UNION ALL
-  SELECT 'MIG', 'las 4 migraciones aplicadas y terminadas, ninguna revertida',
+  -- 6 desde F4-05b: init, app_role, amount_limits, default_privileges, role_timeouts, signup_gate.
+  SELECT 'MIG', 'las 6 migraciones aplicadas y terminadas, ninguna revertida',
          (SELECT count(*) FROM _prisma_migrations
-           WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) = 4
+           WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) = 6
            AND NOT EXISTS (SELECT 1 FROM _prisma_migrations WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL),
          (SELECT string_agg(migration_name, ', ' ORDER BY migration_name) FROM _prisma_migrations)
   UNION ALL
