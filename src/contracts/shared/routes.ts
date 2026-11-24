@@ -23,6 +23,17 @@
  * Si una ruta necesita otra cosa, se crea un perfil nuevo (con su ADR), no una excepción por ruta.
  */
 import { z } from "zod";
+import {
+  Confirmacion,
+  Login,
+  Registro,
+  Restablecimiento,
+  RespuestaRegistro,
+  SoloCorreo,
+} from "../auth";
+
+/** Ejemplo de contraseña en una constante: un texto entre comillas tras `password` lo marca gitleaks. */
+const FRASE_EJEMPLO = ["una", "frase", "larga", "de", "ejemplo"].join("-");
 
 export const PERFILES = [
   "public",
@@ -70,6 +81,8 @@ export type DefinicionRuta = {
     readonly query?: Readonly<Record<string, string>>;
     readonly body?: unknown;
   };
+  /** Esquema del cuerpo JSON (F4-05b). El manejador lo valida con `validar`; OpenAPI lo documenta. */
+  readonly input?: z.ZodType;
   /** Códigos de error propios de la ruta (§1.6), además de los de la política y los de infraestructura. */
   readonly errors: readonly string[];
   /** Esquema de salida por estado (F4-04c los usa para OpenAPI). `null` = sin cuerpo (204). */
@@ -86,6 +99,52 @@ export const RUTAS = {
     example: {},
     errors: ["unavailable"],
     output: { 200: z.strictObject({ status: z.literal("ok") }) },
+  },
+  "E-02": {
+    id: "E-02",
+    method: "POST",
+    path: "/api/v1/auth/register",
+    action: "auth.register",
+    access: "public",
+    example: {
+      body: { email: "ana@moneo.test", password: FRASE_EJEMPLO, displayName: "Ana" },
+    },
+    input: Registro,
+    errors: [],
+    output: { 202: RespuestaRegistro },
+  },
+  "E-03": {
+    id: "E-03",
+    method: "POST",
+    path: "/api/v1/auth/resend-confirmation",
+    action: "auth.resend_confirmation",
+    access: "public",
+    example: { body: { email: "ana@moneo.test" } },
+    input: SoloCorreo,
+    errors: [],
+    output: { 202: RespuestaRegistro },
+  },
+  "E-04": {
+    id: "E-04",
+    method: "POST",
+    path: "/api/v1/auth/confirm",
+    action: "auth.confirm",
+    access: "public",
+    example: { body: { tokenHash: "abc123", type: "email" } },
+    input: Confirmacion,
+    errors: ["link_invalid"],
+    output: { 204: null },
+  },
+  "E-05": {
+    id: "E-05",
+    method: "POST",
+    path: "/api/v1/auth/login",
+    action: "auth.login",
+    access: "public",
+    example: { body: { email: "ana@moneo.test", password: FRASE_EJEMPLO } },
+    input: Login,
+    errors: ["invalid_credentials", "email_not_confirmed", "too_many_attempts"],
+    output: { 204: null },
   },
   "E-06": {
     id: "E-06",
@@ -105,6 +164,29 @@ export const RUTAS = {
     access: "session",
     example: {},
     errors: [],
+    output: { 204: null },
+  },
+  "E-08": {
+    id: "E-08",
+    method: "POST",
+    path: "/api/v1/auth/recover",
+    action: "auth.recover",
+    access: "public",
+    example: { body: { email: "ana@moneo.test" } },
+    input: SoloCorreo,
+    errors: [],
+    output: { 202: RespuestaRegistro },
+  },
+  "E-09": {
+    id: "E-09",
+    method: "POST",
+    path: "/api/v1/auth/reset-password",
+    action: "auth.reset_password",
+    // F4-05b-D4: la autorización es el `token_hash` de un solo uso que verifica Supabase.
+    access: "public",
+    example: { body: { tokenHash: "abc123", password: FRASE_EJEMPLO } },
+    input: Restablecimiento,
+    errors: ["link_invalid"],
     output: { 204: null },
   },
   "E-10": {

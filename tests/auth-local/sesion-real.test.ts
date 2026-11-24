@@ -10,9 +10,9 @@
  *   4. E-06 (`local`) invalida el token de refresco de esa sesión; E-07 (`global`) el de todas.
  *   5. `/me` con una sesión real y el perfil en Postgres (si hay TEST_APP_DATABASE_URL).
  *
- * Requisitos: `supabase start` con `signing_keys_path` (ver `.env.example`, «Supabase local»),
- * registro abierto en local (`enable_signup = true`) y sin confirmación de correo. **F4-05b cierra
- * el registro con el hook (S-7): esta prueba deberá crear su usuario por la lista permitida.**
+ * Requisitos: `supabase start` con `signing_keys_path` (ver `.env.example`, «Supabase local»).
+ * Desde F4-05b el registro está cerrado por el hook (S-7) y exige confirmar el correo: la prueba
+ * agrega su correo a la lista permitida (como dueño), se registra y confirma con el enlace de Mailpit.
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type Session } from "@supabase/supabase-js";
@@ -28,6 +28,7 @@ import { crearPrisma } from "@/server/shared/db/client";
 import { leerPerfilConMembresias } from "@/server/shared/db/perfil";
 import { crearLogger } from "@/server/shared/log";
 import { cabeceraCookie, cookiesDeSesion } from "../autorizacion/jwt";
+import { dueno, esperarEnlace, permitir, quitarPermiso } from "./_comun";
 
 const URL_SUPA = process.env.TEST_SUPABASE_URL;
 const CLAVE = process.env.TEST_SUPABASE_PUBLISHABLE_KEY;
@@ -65,17 +66,17 @@ const contrasena = randomBytes(18).toString("base64url");
 let sesion: Session;
 
 beforeAll(async () => {
-  const { data, error } = await supa().auth.signUp({ email: correo, password: contrasena });
-  if (error)
+  await permitir(correo);
+  const { error } = await supa().auth.signUp({ email: correo, password: contrasena });
+  if (error) {
     throw new Error(
-      `signUp falló (${error.status} ${error.code ?? ""}): ¿registro abierto en local?`,
-    );
-  if (!data.session) {
-    throw new Error(
-      "signUp no devolvió sesión: en local, [auth.email] enable_confirmations debe ser false en F4-05a.",
+      `signUp falló (${error.status} ${error.code ?? ""}): ¿hook S-7 y migración aplicados?`,
     );
   }
-  sesion = data.session;
+  const enlace = await esperarEnlace(correo, "Confirma tu correo");
+  const v = await supa().auth.verifyOtp({ token_hash: enlace.tokenHash, type: enlace.type });
+  if (v.error) throw new Error(`verifyOtp falló (${v.error.status} ${v.error.code ?? ""})`);
+  sesion = await iniciar();
 });
 
 async function iniciar(): Promise<Session> {
@@ -197,7 +198,9 @@ describe("F4-05a sesión real contra Supabase local", () => {
   });
 });
 
-afterAll(() => {
+afterAll(async () => {
   // El usuario de prueba queda en auth.users local (sin clave secreta no se borra desde aquí).
-  // `supabase db reset` lo limpia.
+  // `supabase db reset` lo limpia. La entrada de la lista permitida sí se quita.
+  await quitarPermiso(correo);
+  await dueno.end();
 });

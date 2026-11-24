@@ -4,9 +4,9 @@
  * Devuelve el perfil de quien llama y SOLO sus membresías activas (0 o 1 en v1). El correo sale
  * del claim `email` de la sesión: `profile` no lo guarda (RNF-PRI-03, M-2).
  *
- * Una sesión válida sin perfil es un estado roto (el perfil se crea en el mismo Route Handler del
- * registro, M-2, F4-05b): se lanza `PerfilInexistente` → 500 y Sentry, para que se vea. Un 401
- * haría que la persona entrara y saliera en bucle sin que nadie se enterara.
+ * Una sesión válida sin perfil es un estado roto (el perfil se crea al confirmar el correo y se
+ * repara al entrar, M-2 con F4-05b-D2): se lanza `PerfilInexistente` → 500 y Sentry, para que se
+ * vea. Un 401 haría que la persona entrara y saliera en bucle sin que nadie se enterara.
  */
 import type { Actor } from "../shared/auth/politica";
 import { leerPerfilConMembresias, type PerfilConMembresias } from "../shared/db/perfil";

@@ -8,13 +8,23 @@ const ORIGEN = "http://localhost:3000";
 // El valor va en una constante: `KEY` seguido de un texto entre comillas lo marca gitleaks (F4-04c).
 const LLAVE = "llave-de-prueba-de-32-caracteres-o-mas";
 
-beforeAll(() => {
+type ModuloRuta = { POST: (peticion: Request) => Promise<Response> };
+let rutas: Record<"logout" | "logout-all", ModuloRuta>;
+
+// Los route.ts se importan UNA vez aquí, con su propio plazo: con la suite completa en paralelo,
+// la primera importación tardaba > 5 s y la prueba vencía con la petición aún viva, que luego
+// usaba el `fetch` falso de la prueba siguiente (falla vista en F4-05b).
+beforeAll(async () => {
   vi.stubEnv("DATABASE_URL", "postgresql://moneo_app:x@127.0.0.1:54322/postgres");
   vi.stubEnv("APP_ORIGIN", ORIGEN);
   vi.stubEnv("RATE_LIMIT_HASH_KEY", LLAVE);
   vi.stubEnv("SUPABASE_URL", CONFIG_AUTH.url);
   vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", CONFIG_AUTH.clavePublica);
-});
+  rutas = {
+    logout: await import("../../src/app/api/v1/auth/logout/route"),
+    "logout-all": await import("../../src/app/api/v1/auth/logout-all/route"),
+  };
+}, 60_000);
 afterAll(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -36,11 +46,7 @@ async function llamar(ruta: "logout" | "logout-all", conSesion: boolean) {
         : null,
     ),
   );
-  const mod =
-    ruta === "logout"
-      ? await import("../../src/app/api/v1/auth/logout/route")
-      : await import("../../src/app/api/v1/auth/logout-all/route");
-  const res = await mod.POST(
+  const res = await rutas[ruta].POST(
     new Request(`${ORIGEN}/api/v1/auth/${ruta}`, {
       method: "POST",
       headers: { origin: ORIGEN, cookie: cabeceraCookie(cookies) },

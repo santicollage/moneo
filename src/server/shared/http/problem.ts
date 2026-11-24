@@ -11,10 +11,14 @@ export const CATALOGO = {
   invalid_request: { status: 400, title: "La petición no es válida" },
   invalid_cursor: { status: 400, title: "El cursor no es válido" },
   idempotency_key_missing: { status: 400, title: "Falta la cabecera Idempotency-Key" },
+  /** F4-05b: E-04 con un enlace vencido, ya usado o alterado. */
+  link_invalid: { status: 400, title: "El enlace no sirve o ya venció" },
   unauthenticated: { status: 401, title: "Inicia sesión" },
   invalid_credentials: { status: 401, title: "Correo o contraseña incorrectos" },
   forbidden: { status: 403, title: "No tienes permiso para esto" },
   origin_mismatch: { status: 403, title: "Origen no permitido" },
+  /** F4-05b: E-05 con la contraseña CORRECTA y el correo sin confirmar (no revela si el correo existe). */
+  email_not_confirmed: { status: 403, title: "Confirma tu correo antes de entrar" },
   not_found: { status: 404, title: "No encontrado" },
   version_conflict: { status: 409, title: "Alguien cambió esto antes que tú" },
   balance_changed: { status: 409, title: "El saldo cambió mientras ajustabas" },

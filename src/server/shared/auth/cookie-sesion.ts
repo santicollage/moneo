@@ -81,3 +81,32 @@ export function cookiesParaBorrar(cookies: readonly CookieLeida[], seguras: bool
 
 /** Las cookies de una petición, sin decodificar (`parseCookieHeader` de la misma librería). */
 export { parseCookieHeader } from "@supabase/ssr";
+
+/** Una cookie que `@supabase/ssr` pidió escribir (forma de `setAll`). */
+export type CookieParaEscribir = {
+  readonly name: string;
+  readonly value: string;
+  readonly options: Parameters<typeof serializeCookieHeader>[2];
+};
+
+/**
+ * `Set-Cookie` de una sesión NUEVA (login y confirmación, F4-05b): las que escribió la librería y,
+ * además, el borrado de los trozos de una sesión anterior que la nueva no reemplazó. Sin eso, si la
+ * vieja estaba en `moneo-sesion.0`/`.1` y la nueva cabe en `moneo-sesion` (o al revés), el
+ * navegador quedaría con las dos y `combineChunks` podría leer la vieja.
+ */
+export function cookiesDeSesionNueva(
+  escritas: readonly CookieParaEscribir[],
+  entrantes: readonly CookieLeida[],
+  seguras: boolean,
+): string[] {
+  const { name: _nombre, ...opciones } = opcionesCookie(seguras);
+  void _nombre;
+  const salida = escritas.map((c) => serializeCookieHeader(c.name, c.value, c.options));
+  const nuevas = new Set(escritas.map((c) => c.name));
+  const viejas = entrantes.map((c) => c.name).filter((n) => esCookieDeSesion(n) && !nuevas.has(n));
+  for (const n of [...new Set(viejas)].sort()) {
+    salida.push(serializeCookieHeader(n, "", { ...opciones, maxAge: 0 }));
+  }
+  return salida;
+}

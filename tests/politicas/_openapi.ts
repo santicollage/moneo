@@ -3,6 +3,7 @@
  *
  * Es documentación DERIVADA: el contrato son los esquemas Zod de `RUTAS`. Aquí solo se traduce:
  *   - `:param` → `{param}`; `id` (E-xx) → `operationId`; `action` y `access` como extensiones `x-moneo-*`.
+ *   - Cuerpo de la petición: `RUTAS[…].input` (F4-05b).
  *   - Respuestas de éxito: `RUTAS[…].output`.
  *   - Errores: los propios de la ruta + los que puede dar su perfil de acceso (MATRIZ) + los de
  *     infraestructura de `manejar()` (Origin, 16 KB, 500, 503 `busy`), agrupados por estado.
@@ -95,6 +96,14 @@ export function documentoOpenApi() {
         ? {
             requestParams: {
               path: z.object(Object.fromEntries(params.map((p) => [p, z.uuid()]))),
+            },
+          }
+        : {}),
+      ...(def.input
+        ? {
+            requestBody: {
+              required: true,
+              content: { "application/json": { schema: def.input } },
             },
           }
         : {}),

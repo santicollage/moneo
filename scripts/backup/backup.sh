@@ -19,8 +19,9 @@ read -r SNAP <&"${PSQL[0]}"
 { echo "\\o $WORK/manifest.txt"; echo "\\i $MANIFEST_SQL"; echo "\\o"; echo "SELECT 'ok';"; } >&"${PSQL[1]}"
 read -r _ <&"${PSQL[0]}"
 
-# 3) public completo (schema + datos, incluida _prisma_migrations) con la misma foto.
-pg_dump "$DB_URL" --snapshot="$SNAP" --format=custom --schema=public --no-owner --file="$WORK/public.dump"
+# 3) public completo (schema + datos, incluida _prisma_migrations) con la misma foto, y la lista
+#    permitida del registro (signup_gate, F4-05b). Restaurarla se ensaya en F5-07.
+pg_dump "$DB_URL" --snapshot="$SNAP" --format=custom --schema=public --schema=signup_gate --no-owner --file="$WORK/public.dump"
 
 # 4) Datos de Auth (M-2: profile.id = id del usuario de Auth). SIN VERIFICAR: F4-03 comprueba que
 #    postgres puede leer estas tablas en Supabase; F5-07 ensaya su restauración (R51).

@@ -20,7 +20,8 @@ import { clienteSinSesion } from "./cliente-auth";
 import { cookiesParaBorrar, leerTokens, parseCookieHeader } from "./cookie-sesion";
 import { config } from "../config";
 
-export type Alcance = "local" | "global";
+/** `others` (F4-05b): todas menos la actual, tras restablecer la contraseña (E-09, EN-10). */
+export type Alcance = "local" | "global" | "others";
 
 const YA_CERRADA = new Set([401, 403, 404]);
 

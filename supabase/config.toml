@@ -183,7 +183,8 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# Moneo (DN-1, F4-05b): 15, igual que el contrato (`src/contracts/auth.ts`). Staging y prod: en el panel.
+minimum_password_length = 15
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -228,7 +229,8 @@ enabled = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# Moneo (T-10, F4-05b): confirmación obligatoria, como en staging y prod. El correo llega a Mailpit.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # If enabled, users will need to provide their current password to change their password, unless
@@ -250,6 +252,17 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
+
+# Moneo (F4-05-D1, F4-05b): los enlaces llevan `token_hash` en el FRAGMENTO (#…): no llega a los
+# logs del servidor y un escáner de enlaces que abra la página no consume el token (E-04 es POST).
+# En staging y prod se configuran en F4-05c (Supabase exige SMTP propio para plantillas propias).
+[auth.email.template.confirmation]
+subject = "Confirma tu correo en Moneo"
+content_path = "./supabase/templates/confirmacion.html"
+
+[auth.email.template.recovery]
+subject = "Restablece tu contraseña de Moneo"
+content_path = "./supabase/templates/recuperacion.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
@@ -286,9 +299,12 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+# Moneo (S-7, F4-05-D1, F4-05b): registro cerrado por la lista `signup_gate.allowed_email`.
+# En staging y prod: panel → Authentication → Hooks → Before User Created → Postgres →
+# esquema `signup_gate`, función `before_user_created` (runbook R-13).
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/signup_gate/before_user_created"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]
