@@ -255,6 +255,25 @@ jobs:
       - name: Generar el cliente de Prisma
         run: pnpm exec prisma generate
 
+      # Auth descarga las plantillas de correo desde Kong al arrancar y las recarga cada ~10 s. Si Kong aún
+      # no responde, Auth manda el correo con la plantilla por defecto (otro asunto y otro enlace) y la
+      # prueba de confirmación falla. Se espera una recarga completa sin errores de plantilla.
+      - name: Esperar a que Auth cargue las plantillas de correo
+        run: |
+          errores() { docker logs supabase_auth_moneo 2>&1 | grep -c 'templatemailer_template_body_http_error' || true; }
+          for intento in 1 2 3 4 5; do
+            antes="$(errores)"
+            sleep 12
+            despues="$(errores)"
+            if [ "${antes}" = "${despues}" ]; then
+              echo "Plantillas cargadas (errores acumulados: ${despues}; intento ${intento})."
+              exit 0
+            fi
+            echo "Auth siguió reportando errores de plantilla (${antes} -> ${despues}); reintento."
+          done
+          echo "::error::Auth no logró cargar las plantillas de correo en ~60 s"
+          exit 1
+
       - name: Auth real local (auth-local)
         run: pnpm test:auth-local
 
