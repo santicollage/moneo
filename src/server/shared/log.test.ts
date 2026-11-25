@@ -41,6 +41,11 @@ describe("ADR-011 logger con lista permitida", () => {
     expect(JSON.stringify(salida)).not.toContain(String(Object.values(campos)[0]));
   });
 
+  it("F4-05c: login_counter_reset_failed es un evento permitido (no cae en invalid_event)", () => {
+    const evento = "login_counter_reset_failed";
+    expect(filtrar(evento, "warn").event).toBe(evento);
+  });
+
   it("evento desconocido → invalid_event", () => {
     expect(filtrar("el usuario Ana gastó 20.000", "warn").event).toBe("invalid_event");
   });

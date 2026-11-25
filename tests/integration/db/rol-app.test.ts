@@ -185,9 +185,13 @@ describe("S-1 lo que moneo_app SÍ puede hacer", () => {
         `INSERT INTO rate_limit_counter (scope, key_hash, window_start, count)
          VALUES ('login', '\\x00', now() - interval '1 hour', 1)`,
       );
-      await c.query(`UPDATE rate_limit_counter SET count = count + 1 WHERE scope = 'login'`);
+      await c.query(
+        `UPDATE rate_limit_counter SET count = count + 1 WHERE scope = 'login' AND key_hash = '\\x00'`,
+      );
+      // Acotado a la fila propia: la base local puede tener ventanas vencidas de otras ejecuciones (dev, E2E).
       const r = await c.query(
-        `DELETE FROM rate_limit_counter WHERE window_start < now() - interval '15 minutes'`,
+        `DELETE FROM rate_limit_counter
+         WHERE scope = 'login' AND key_hash = '\\x00' AND window_start < now() - interval '15 minutes'`,
       );
       expect(r.rowCount).toBe(1);
     });

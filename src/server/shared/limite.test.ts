@@ -9,6 +9,7 @@ import {
   inicioVentana,
   LIMITES,
   registrarIntento,
+  reiniciarIntentos,
   type DependenciasLimite,
 } from "./limite";
 
@@ -94,6 +95,23 @@ describe("F4-04c límite de intentos (RNF-SEG-02, DN-2)", () => {
       incrementar: c.incrementar,
     });
     expect(r.reintentoSegundos).toBe(1);
+  });
+
+  it("reiniciarIntentos borra solo el contador de esa clave y ámbito (F4-05c)", async () => {
+    const borrados: { scope: string; hash: string }[] = [];
+    const deps = {
+      llave: () => LLAVE,
+      borrar: async (scope: string, hash: Uint8Array) => {
+        borrados.push({ scope, hash: Buffer.from(hash).toString("hex") });
+      },
+    };
+    await reiniciarIntentos("login:account", "ana@ejemplo.co", deps);
+    expect(borrados).toEqual([
+      {
+        scope: "login:account",
+        hash: Buffer.from(hashClave("login:account", "ana@ejemplo.co", LLAVE)).toString("hex"),
+      },
+    ]);
   });
 
   it("exigirIntento: al pasarse lanza ErrorApi too_many_attempts con el Retry-After", async () => {

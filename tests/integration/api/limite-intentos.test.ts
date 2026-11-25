@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 import { crearPrisma } from "@/server/shared/db/client";
-import { incrementarIntento } from "@/server/shared/db/intentos";
+import { borrarIntentos, incrementarIntento } from "@/server/shared/db/intentos";
 import type { PrismaClient } from "@/server/shared/db/generated/client";
 import { manejar } from "@/server/shared/http/manejar";
 import { exigirIntento, hashClave, LIMITES, type Ambito } from "@/server/shared/limite";
@@ -124,6 +124,25 @@ describe("F4-04c límite de intentos contra Postgres real (EN-13)", () => {
     ahora = t0 + 15 * 60 * 1000; // ventana siguiente
     expect((await ha(peticion())).status).toBe(204);
     expect(await fila("login:account", a)).toEqual({ count: 1, filas: 1 });
+  });
+
+  it("F4-05c: borrarIntentos (como moneo_app) borra todas las ventanas de esa clave y de ninguna otra", async () => {
+    const [a, b] = [randomUUID(), randomUUID()];
+    const ahora = Date.UTC(2026, 10, 19, 15, 7, 30);
+    const ha = ruta("login:account", a, () => ahora);
+    const hb = ruta("login:account", b, () => ahora);
+    for (let i = 0; i < 4; i++) await ha(peticion());
+    await hb(peticion());
+    expect(await fila("login:account", a)).toEqual({ count: 4, filas: 1 });
+
+    await borrarIntentos("login:account", hashClave("login:account", a, LLAVE), prisma);
+    expect(await fila("login:account", a)).toEqual({ count: null, filas: 0 });
+    expect(await fila("login:account", b)).toEqual({ count: 1, filas: 1 });
+
+    // Tras borrar, la cuenta vuelve a tener sus 5 intentos completos (no 1).
+    const estados: number[] = [];
+    for (let i = 0; i < 6; i++) estados.push((await ha(peticion())).status);
+    expect(estados).toEqual([204, 204, 204, 204, 204, 429]);
   });
 
   it("RNF-PRI-01: la tabla no guarda la clave en claro ni su SHA-256", async () => {

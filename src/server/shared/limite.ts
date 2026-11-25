@@ -14,7 +14,7 @@
  */
 import { createHmac } from "node:crypto";
 import { config } from "./config";
-import { incrementarIntento } from "./db/intentos";
+import { borrarIntentos, incrementarIntento } from "./db/intentos";
 import { ErrorApi } from "./http/errores";
 
 /** Límites de `12-diseno-api.md` §1.5. `scope` cabe en `VARCHAR(32)`. */
@@ -42,12 +42,14 @@ export type DependenciasLimite = {
   llave: () => string;
   ahora: () => number;
   incrementar: (scope: string, hash: Uint8Array<ArrayBuffer>, inicio: Date) => Promise<number>;
+  borrar: (scope: string, hash: Uint8Array<ArrayBuffer>) => Promise<void>;
 };
 
 const porDefecto: DependenciasLimite = {
   llave: () => config().llaveIntentos,
   ahora: () => Date.now(),
   incrementar: (scope, hash, inicio) => incrementarIntento(scope, hash, inicio),
+  borrar: (scope, hash) => borrarIntentos(scope, hash),
 };
 
 /** HMAC-SHA256 de `ambito` + separador + `clave`: 32 bytes. El ámbito evita reusar un hash entre contadores. */
@@ -94,4 +96,18 @@ export async function exigirIntento(
 ): Promise<void> {
   const r = await registrarIntento(ambito, clave, deps);
   if (!r.permitido) throw new ErrorApi("too_many_attempts", undefined, r.reintentoSegundos);
+}
+
+/**
+ * Pone en cero el contador de una clave (todas sus ventanas). Solo para «un login correcto borra los
+ * fallos de esa cuenta» (F4-05c, RNF-SEG-02). NO se usa con `login:ip`: el límite por IP sigue
+ * contando todo, para que una cuenta propia no sirva de llave para probar contraseñas ajenas.
+ */
+export async function reiniciarIntentos(
+  ambito: Ambito,
+  clave: string,
+  deps: Partial<DependenciasLimite> = {},
+): Promise<void> {
+  const d: DependenciasLimite = { ...porDefecto, ...deps };
+  await d.borrar(ambito, hashClave(ambito, clave, d.llave()));
 }
