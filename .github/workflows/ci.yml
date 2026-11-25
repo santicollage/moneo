@@ -192,11 +192,91 @@ jobs:
       # `auditConfig` (pnpm-workspace.yaml) con su GHSA y una fecha de revisión; no se ignora en bloque.
       - run: pnpm audit --audit-level high
 
+  e2e:
+    name: E2E y Auth local (Supabase CLI)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # F4-05c (P1 = a): Supabase local con la CLI del repo (devDependency, sin acción de terceros).
+    # Aplica las migraciones (incluida `signup_gate`: el hook S-7 queda activo por config.toml),
+    # corre `auth-local` (Vitest) y E2E-5 (Playwright, Chromium) contra `pnpm start`.
+    # Sin secretos: contraseñas, clave HMAC y clave de firma son desechables y viven solo en este job.
+    env:
+      DB_OWNER_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      DATABASE_URL: postgresql://moneo_app:ci-desechable-app@127.0.0.1:54322/postgres
+      SUPABASE_URL: http://127.0.0.1:54321
+      APP_ORIGIN: http://localhost:3000
+      RATE_LIMIT_HASH_KEY: ci-desechable-llave-hmac-de-32-caracteres-o-mas
+      TEST_SUPABASE_URL: http://127.0.0.1:54321
+      TEST_OWNER_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      TEST_APP_DATABASE_URL: postgresql://moneo_app:ci-desechable-app@127.0.0.1:54322/postgres
+      TEST_MAILPIT_URL: http://127.0.0.1:54324
+    steps:
+      - name: Inicio
+        run: echo "T0=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Instalar pnpm (la versión de packageManager)
+        run: |
+          PNPM_VERSION="$(node -p "require('./package.json').packageManager.split('@')[1]")"
+          npm install --global "pnpm@${PNPM_VERSION}"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Clave de firma ES256 desechable (EN-11)
+        run: node scripts/ci/generar-clave-firma.mjs supabase/signing_keys.json
+
+      # Solo lo que usan la app y las pruebas: base, Auth (gotrue), Kong, REST y Mailpit.
+      - name: Levantar Supabase local
+        run: pnpm exec supabase start -x studio,imgproxy,edge-runtime,supavisor,realtime,storage-api,postgres-meta,logflare,vector
+
+      # La clave publicable local no es secreta, pero se lee de la CLI en lugar de copiarla aquí:
+      # si la CLI la cambia, el job no se queda con una vieja.
+      - name: Clave publicable local
+        run: |
+          KEY="$(pnpm exec supabase status -o env | grep -o 'sb_publishable_[A-Za-z0-9_-]*' | head -n 1)"
+          test -n "${KEY}" || { echo "::error::supabase status no trae una clave sb_publishable_"; exit 1; }
+          echo "SUPABASE_PUBLISHABLE_KEY=${KEY}" >> "$GITHUB_ENV"
+          echo "TEST_SUPABASE_PUBLISHABLE_KEY=${KEY}" >> "$GITHUB_ENV"
+
+      - name: Aplicar las migraciones (incluye signup_gate)
+        run: pnpm exec prisma migrate deploy
+
+      - name: Habilitar el login de moneo_app (contraseña desechable)
+        run: psql "${DB_OWNER_URL}" -v ON_ERROR_STOP=1 -c "ALTER ROLE moneo_app LOGIN PASSWORD 'ci-desechable-app'"
+
+      # R65: el cliente de Prisma está en .gitignore; build y pruebas lo necesitan.
+      - name: Generar el cliente de Prisma
+        run: pnpm exec prisma generate
+
+      - name: Auth real local (auth-local)
+        run: pnpm test:auth-local
+
+      - run: pnpm build
+
+      - name: Instalar Chromium para Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E-5 (Playwright)
+        run: pnpm test:e2e
+
+      - name: Duración
+        if: always()
+        run: |
+          S=$(( $(date +%s) - T0 ))
+          echo "Duración del job e2e: $((S / 60)) min $((S % 60)) s (R50: si pasa de 10 min, T-10 lo mueve antes de la promoción)" >> "$GITHUB_STEP_SUMMARY"
+
   # Un solo check obligatorio para la regla de main: si se agrega un job, entra aquí y la regla no cambia.
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [verificar, postgres17, secretos, auditoria]
+    needs: [verificar, postgres17, e2e, secretos, auditoria]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
