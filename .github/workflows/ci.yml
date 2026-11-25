@@ -266,6 +266,16 @@ jobs:
       - name: E2E-5 (Playwright)
         run: pnpm test:e2e
 
+      # Diagnóstico solo si algo falló: registros de Auth y Mailpit (sin datos de usuarios reales: todo es local y desechable).
+      - name: Registros de Supabase local (solo si falla)
+        if: failure()
+        run: |
+          for c in $(docker ps --format '{{.Names}}' | grep -E 'auth|mail|inbucket'); do
+            echo "::group::${c}"
+            docker logs --tail 80 "${c}" 2>&1 || true
+            echo "::endgroup::"
+          done
+
       - name: Duración
         if: always()
         run: |

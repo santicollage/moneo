@@ -1,0 +1,13 @@
+# Moneo: gitleaks usa las reglas por defecto más las excepciones de abajo.
+# Cada excepción debe acotarse por ruta Y por valor (condition = "AND"): nunca una carpeta entera.
+title = "Moneo"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "T-12 (E2E): token_hash inventado a propósito; no es un secreto"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''tests/e2e/sesion\.spec\.ts''']
+regexes = ['''enlace-inventado-123''']
