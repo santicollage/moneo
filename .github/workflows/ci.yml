@@ -266,15 +266,20 @@ jobs:
       - name: E2E-5 (Playwright)
         run: pnpm test:e2e
 
-      # Diagnóstico solo si algo falló: registros de Auth y Mailpit (sin datos de usuarios reales: todo es local y desechable).
-      - name: Registros de Supabase local (solo si falla)
+      # Diagnóstico solo si algo falló. Todo es local y desechable (correos @moneo.test), sin datos reales.
+      - name: Diagnóstico de Auth y Mailpit (solo si falla)
         if: failure()
         run: |
-          for c in $(docker ps --format '{{.Names}}' | grep -E 'auth|mail|inbucket'); do
-            echo "::group::${c}"
-            docker logs --tail 80 "${c}" 2>&1 || true
-            echo "::endgroup::"
-          done
+          echo "::group::Mailpit: correos recibidos (asunto, destinatario, hora)"
+          curl -fsS "http://127.0.0.1:54324/api/v1/messages?limit=100" \
+            | jq -r '.messages[] | "\(.Created) | \(.Subject) | \(.To[0].Address)"' || true
+          echo "::endgroup::"
+          echo "::group::Auth: avisos y errores (sin ruido)"
+          docker logs supabase_auth_moneo 2>&1 | grep -E '"level":"(warning|error|fatal)"' | cut -c1-400 | head -60 || true
+          echo "::endgroup::"
+          echo "::group::Auth: solicitudes de confirmación y envíos de correo"
+          docker logs supabase_auth_moneo 2>&1 | grep -iE 'confirmation_requested|smtp|mailer|over_email' | cut -c1-300 | head -40 || true
+          echo "::endgroup::"
 
       - name: Duración
         if: always()
