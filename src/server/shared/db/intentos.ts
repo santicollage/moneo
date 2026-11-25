@@ -18,6 +18,7 @@ import type { PrismaClient } from "./generated/client";
 
 /** Lo mínimo del cliente que se usa; permite probar con un cliente propio. */
 export type EjecutorIntentos = Pick<PrismaClient, "$queryRaw">;
+export type EjecutorBorrado = Pick<PrismaClient, "$executeRaw">;
 
 export async function incrementarIntento(
   scope: string,
@@ -38,4 +39,18 @@ export async function incrementarIntento(
   const fila = filas[0];
   if (!fila) throw new Error("rate_limit_counter: INSERT … RETURNING no devolvió fila");
   return fila.count;
+}
+
+/**
+ * Borra TODAS las ventanas de una clave (F4-05c): lo usa el login correcto para que el contador de
+ * la cuenta cuente fallos seguidos y no logins (RNF-SEG-02: «5 fallos»). `moneo_app` ya tiene DELETE
+ * sobre esta tabla (lo usa la sentencia de arriba para las ventanas vencidas). Solo borra esa clave.
+ */
+export async function borrarIntentos(
+  scope: string,
+  keyHash: Uint8Array<ArrayBuffer>,
+  ejecutor: EjecutorBorrado = db(),
+): Promise<void> {
+  await ejecutor.$executeRaw`
+    DELETE FROM rate_limit_counter WHERE scope = ${scope} AND key_hash = ${keyHash}`;
 }

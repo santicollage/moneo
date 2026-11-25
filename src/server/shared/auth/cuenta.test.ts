@@ -46,6 +46,7 @@ type Arreglo = {
   responder: (l: Llamada) => Response | Promise<Response>;
   permitido?: boolean;
   exigir?: (ambito: string, clave: string) => Promise<void>;
+  reiniciar?: (ambito: string, clave: string) => Promise<void>;
   perfil?: (id: string, nombre: string) => Promise<void>;
   cerrarOtras?: DependenciasCuenta["cerrarOtras"];
 };
@@ -54,6 +55,7 @@ function arreglo(a: Arreglo) {
   const g = gotrueFalso(a.responder);
   const { log, avisos } = logFalso();
   const intentos: string[] = [];
+  const reinicios: string[] = [];
   const perfiles: [string, string][] = [];
   const deps: Partial<DependenciasCuenta> = {
     cfg: () => CONFIG_AUTH,
@@ -69,13 +71,17 @@ function arreglo(a: Arreglo) {
       intentos.push(`${ambito}=${clave}`);
       await a.exigir?.(ambito, clave);
     },
+    reiniciarIntentos: async (ambito, clave) => {
+      reinicios.push(`${ambito}=${clave}`);
+      await a.reiniciar?.(ambito, clave);
+    },
     asegurarPerfil: async (id, nombre) => {
       perfiles.push([id, nombre]);
       await a.perfil?.(id, nombre);
     },
     cerrarOtras: a.cerrarOtras ?? (() => Promise.resolve()),
   };
-  return { deps, g, avisos, intentos, perfiles };
+  return { deps, g, avisos, intentos, reinicios, perfiles };
 }
 
 function peticion(cuerpo: unknown, cookie?: string) {
@@ -330,6 +336,44 @@ describe("E-05 login (DN-2, M-14)", () => {
     await expect(
       entrar(peticion({ email: CORREO, password: FRASE }), a.deps),
     ).rejects.not.toBeInstanceOf(ErrorApi);
+  });
+
+  it("login correcto: borra los fallos de ESA cuenta y no toca el contador de la IP (F4-05c)", async () => {
+    const a = arreglo({ responder: () => sesion("Ana") });
+    await entrar(peticion({ email: " ANA@moneo.test", password: FRASE }), a.deps);
+    expect(a.reinicios).toEqual([`login:account=${CORREO}`]);
+  });
+
+  it("los logins que fallan no reinician nada: 401, 403 sin confirmar, 429 y caída de Supabase", async () => {
+    const casos: [string, () => Response | Promise<Response>, boolean][] = [
+      ["credenciales", () => errorGotrue(400, "invalid_credentials"), false],
+      ["sin confirmar", () => errorGotrue(400, "email_not_confirmed"), false],
+      ["Supabase caído", () => errorGotrue(503, "unexpected_failure"), false],
+    ];
+    for (const [, responder] of casos) {
+      const a = arreglo({ responder });
+      await entrar(peticion({ email: CORREO, password: FRASE }), a.deps).catch(() => {});
+      expect(a.reinicios).toEqual([]);
+    }
+    const limitado = arreglo({
+      responder: () => sesion("Ana"),
+      exigir: () => Promise.reject(new ErrorApi("too_many_attempts", undefined, 60)),
+    });
+    await entrar(peticion({ email: CORREO, password: FRASE }), limitado.deps).catch(() => {});
+    expect(limitado.reinicios).toEqual([]);
+  });
+
+  it("si el borrado del contador falla, la persona igual entra y queda anotado sin datos", async () => {
+    const a = arreglo({
+      responder: () => sesion("Ana"),
+      reiniciar: () => Promise.reject(new Error(`falla con ${CORREO}`)),
+    });
+    const r = await entrar(peticion({ email: CORREO, password: FRASE }), a.deps);
+    expect(r.status).toBe(204);
+    expect(a.perfiles).toHaveLength(1);
+    expect(a.avisos).toHaveLength(1);
+    expect(a.avisos[0]?.evento).toBe("login_counter_reset_failed");
+    expect(JSON.stringify(a.avisos[0])).not.toContain(CORREO);
   });
 
   it("repara un perfil que falte: asegurarPerfil corre en cada login", async () => {

@@ -17,7 +17,9 @@ export type EventoLog =
   | "db_unreachable"
   | "config_invalid"
   | "session_refresh_failed"
-  | "auth_rejected";
+  | "auth_rejected"
+  /** F4-05c: el login entró pero no se pudo borrar el contador de fallos de la cuenta. */
+  | "login_counter_reset_failed";
 
 export type Nivel = "info" | "warn" | "error";
 export type Metodo = "GET" | "POST" | "PATCH" | "PUT";
@@ -46,6 +48,7 @@ const EVENTOS = new Set<string>([
   "config_invalid",
   "session_refresh_failed",
   "auth_rejected",
+  "login_counter_reset_failed",
 ]);
 const METODOS = new Set<string>(["GET", "POST", "PATCH", "PUT"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -31,7 +31,7 @@ import { asegurarPerfil } from "../db/perfil";
 import { ErrorApi } from "../http/errores";
 import { ipCliente } from "../http/ip";
 import { validar } from "../http/validar";
-import { claveCorreo, exigirIntento, registrarIntento } from "../limite";
+import { claveCorreo, exigirIntento, registrarIntento, reiniciarIntentos } from "../limite";
 import { logger, type Logger } from "../log";
 import { cerrarSesion } from "./cerrar-sesion";
 import {
@@ -55,6 +55,8 @@ export type DependenciasCuenta = {
   asegurarPerfil: (profileId: string, displayName: string) => Promise<void>;
   registrarIntento: typeof registrarIntento;
   exigirIntento: typeof exigirIntento;
+  /** F4-05c: un login correcto borra los fallos de esa cuenta. */
+  reiniciarIntentos: typeof reiniciarIntentos;
   ip: (peticion: Request) => string;
   log: Logger;
   /** Para cerrar las otras sesiones en E-09 (se inyecta en las pruebas). */
@@ -68,6 +70,7 @@ const porDefecto: DependenciasCuenta = {
   asegurarPerfil: (p, n) => asegurarPerfil(p, n),
   registrarIntento,
   exigirIntento,
+  reiniciarIntentos,
   ip: (p) => ipCliente(p, config().enVercel),
   log: logger,
   cerrarOtras: (t, c) => cerrarSesion(t, "others", c),
@@ -223,6 +226,17 @@ export async function entrar(p: Peticion, deps: Partial<DependenciasCuenta> = {}
     if (codigoAuth(error) === "email_not_confirmed") throw new ErrorApi("email_not_confirmed");
     if (esRechazo(error)) throw new ErrorApi("invalid_credentials");
     throw error;
+  }
+  // F4-05c (RNF-SEG-02): el contador de la cuenta cuenta fallos seguidos, no logins. Solo la cuenta:
+  // el de la IP sigue contando todo. Si el borrado falla, la persona ya entró: se anota y sigue.
+  try {
+    await d.reiniciarIntentos("login:account", claveCorreo(email));
+  } catch {
+    d.log.warn("login_counter_reset_failed", {
+      route: "/api/v1/auth/login",
+      requestId: p.requestId,
+      errorCode: "counter_reset_failed",
+    });
   }
   await d.asegurarPerfil(data.user.id, nombreDe(data.user));
   return responder(p.peticion);
