@@ -2,7 +2,7 @@
 //   unit        → rápidas, sin red ni base de datos. Es lo que corre `pnpm test` y el pre-push.
 //   integration → contra Postgres real como `moneo_app` (F4-03b: tests/integration/db). `pnpm test:integration`.
 //   pooler-real → MANUAL contra el pooler de Supabase real, solo staging (F4-03d). `pnpm test:pooler-real`.
-//   auth-local  → MANUAL contra Supabase Auth LOCAL (F4-05a, R49). `pnpm test:auth-local`.
+//   auth-local  → contra Supabase Auth LOCAL (F4-05a, R49). `pnpm test:auth-local`; en el CI, job `e2e` (F4-05c).
 // Cada proyecto declara su propio include: nada se "descubre" por accidente.
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -51,7 +51,8 @@ export default defineConfig({
         },
       },
       {
-        // F4-05a: MANUAL contra Supabase local (Auth y JWKS reales). Ni `pnpm test` ni el CI.
+        // F4-05a: contra Supabase local (Auth y JWKS reales). No entra en `pnpm test`; desde F4-05c
+        // sí en el CI, en el job `e2e` (que levanta Supabase con la CLI).
         resolve: { alias },
         test: {
           name: "auth-local",

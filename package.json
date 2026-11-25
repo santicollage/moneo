@@ -15,6 +15,7 @@
     "test:integration": "vitest run --project integration",
     "test:pooler-real": "vitest run --project pooler-real",
     "test:auth-local": "vitest run --project auth-local",
+    "test:e2e": "playwright test",
     "openapi": "vitest run --project unit tests/politicas/openapi.test.ts --update",
     "prepare": "husky"
   },
@@ -34,6 +35,7 @@
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/js": "10.0.1",
     "@next/eslint-plugin-next": "16.4.5",
+    "@playwright/test": "1.65.1",
     "@tailwindcss/turbopack": "4.3.5",
     "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
