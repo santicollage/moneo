@@ -36,10 +36,15 @@ function violacionesRuta(texto: string): string[] {
 /** DEP-02 */
 function violacionesVercel(texto: string): string[] {
   const v: string[] = [];
-  const j = JSON.parse(texto) as { regions?: unknown; git?: { deploymentEnabled?: unknown } };
+  const j = JSON.parse(texto) as {
+    framework?: unknown;
+    regions?: unknown;
+    git?: { deploymentEnabled?: unknown };
+  };
   if (JSON.stringify(j.regions) !== JSON.stringify(["iad1"]))
     v.push("regions debe ser [iad1] (DEP-02)");
   if (j.git?.deploymentEnabled !== false) v.push("git.deploymentEnabled debe ser false (DEP-02)");
+  if (j.framework !== "nextjs") v.push("framework debe ser nextjs (DEP-02, R76)");
   return v;
 }
 
@@ -151,11 +156,17 @@ describe("las reglas fallan cuando deben", () => {
   });
 
   it("DEP-02: otra región o Git encendido", () => {
-    expect(violacionesVercel('{"regions":["gru1"],"git":{"deploymentEnabled":false}}')).not.toEqual(
+    const ok = '"framework":"nextjs","regions":["iad1"],"git":{"deploymentEnabled":false}';
+    expect(violacionesVercel(`{${ok}}`)).toEqual([]);
+    expect(
+      violacionesVercel(
+        '{"framework":"nextjs","regions":["gru1"],"git":{"deploymentEnabled":false}}',
+      ),
+    ).not.toEqual([]);
+    expect(violacionesVercel('{"framework":"nextjs","regions":["iad1"]}')).not.toEqual([]);
+    expect(violacionesVercel('{"regions":["iad1"],"git":{"deploymentEnabled":false}}')).not.toEqual(
       [],
     );
-    expect(violacionesVercel('{"regions":["iad1"]}')).not.toEqual([]);
-    expect(violacionesVercel('{"regions":["iad1"],"git":{"deploymentEnabled":false}}')).toEqual([]);
   });
 
   const CI = `jobs:

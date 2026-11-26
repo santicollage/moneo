@@ -41,4 +41,12 @@ jobs:
           npm install --global "pnpm@${PNPM_VERSION}"
 
       - run: pnpm install --frozen-lockfile
+
+      # R65: el cliente de Prisma está en .gitignore y algunas pruebas lo importan (falló cada noche
+      # con `./generated/client` no encontrado). generate no se conecta; la URL es solo de relleno.
+      - name: Generar el cliente de Prisma
+        run: pnpm exec prisma generate --no-hints
+        env:
+          DB_OWNER_URL: postgresql://x:x@localhost:5432/x
+
       - run: pnpm test
