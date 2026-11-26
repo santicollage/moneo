@@ -322,3 +322,21 @@ jobs:
           for r in ${RESULTADOS}; do
             test "${r}" = "success" || { echo "::error::Un job no terminó en success"; exit 1; }
           done
+
+  # F4-06a (O-5, D-07): despliegue solo desde `main` y solo con ci-ok en verde. Staging primero;
+  # producción solo si staging migró, desplegó y pasó el humo. En un PR estos jobs se saltan.
+  desplegar-staging:
+    name: Desplegar a staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [ci-ok]
+    uses: ./.github/workflows/desplegar.yml
+    with:
+      entorno: staging
+
+  desplegar-produccion:
+    name: Desplegar a producción
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [desplegar-staging]
+    uses: ./.github/workflows/desplegar.yml
+    with:
+      entorno: production
