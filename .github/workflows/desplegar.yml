@@ -22,6 +22,16 @@ on:
         description: Environment de GitHub (staging o production)
         required: true
         type: string
+    # Los valores salen del environment que declara el job (prevalece sobre lo que pase ci.yml), pero
+    # el contexto `secrets` de un workflow reutilizable solo ve los secretos declarados aquí y pasados
+    # por quien llama. Sin esto llegan vacíos (primera corrida, 2026-11-25). Sin `secrets: inherit`.
+    secrets:
+      DB_OWNER_URL:
+        required: false
+      VERCEL_TOKEN:
+        required: false
+      VERCEL_AUTOMATION_BYPASS:
+        required: false
 
 permissions:
   contents: read

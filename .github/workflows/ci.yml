@@ -332,6 +332,10 @@ jobs:
     uses: ./.github/workflows/desplegar.yml
     with:
       entorno: staging
+    secrets:
+      DB_OWNER_URL: ${{ secrets.DB_OWNER_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
   desplegar-produccion:
     name: Desplegar a producción
@@ -340,3 +344,7 @@ jobs:
     uses: ./.github/workflows/desplegar.yml
     with:
       entorno: production
+    secrets:
+      DB_OWNER_URL: ${{ secrets.DB_OWNER_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
